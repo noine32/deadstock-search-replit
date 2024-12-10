@@ -54,6 +54,14 @@ class FileProcessor:
             print("Purchase history columns:", purchase_history_df.columns.tolist())
             print("YJ code columns:", yj_code_df.columns.tolist())
             
+            print("\n3. データサンプル:")
+            print("\nInventory データ:")
+            print(inventory_df.head())
+            print("\nPurchase history データ:")
+            print(purchase_history_df.head())
+            print("\nYJ code データ:")
+            print(yj_code_df.head())
+            
             # データの前処理
             inventory_df = inventory_df.fillna('')
             purchase_history_df = purchase_history_df.fillna('')
@@ -107,6 +115,11 @@ class FileProcessor:
             
             # ＹＪコードと厚労省CDで紐付け
             try:
+                print("\n4. マージ処理:")
+                print("マージ前の状態:")
+                print("- Inventory df keys:", inventory_df['ＹＪコード'].head())
+                print("- Purchase history df keys:", purchase_history_df['厚労省CD'].head())
+                
                 merged_df = pd.merge(
                     inventory_df,
                     purchase_history_df[required_columns],
@@ -114,9 +127,15 @@ class FileProcessor:
                     right_on='厚労省CD',
                     how='left'
                 )
-                print("マージ後のデータ形状:", merged_df.shape)
+                print("\nマージ後の状態:")
+                print("- 形状:", merged_df.shape)
+                print("- カラム:", merged_df.columns.tolist())
+                print("- データサンプル:")
+                print(merged_df.head())
             except Exception as e:
-                print(f"マージ中にエラーが発生: {str(e)}")
+                print(f"\nマージ中にエラーが発生:")
+                print(f"エラー詳細: {str(e)}")
+                print(f"エラータイプ: {type(e)}")
                 raise
             
             # 必要なカラムのみを選択
@@ -160,17 +179,32 @@ class FileProcessor:
 
     @staticmethod
     def generate_excel(df):
+        print("\n=== Excel生成開始 ===")
+        print("1. 入力データフレーム情報:")
+        print(f"行数: {df.shape[0]}")
+        print(f"列名: {df.columns.tolist()}")
+        print("\n2. データサンプル:")
+        print(df.head())
+        
         excel_buffer = io.BytesIO()
         
         # シート名として無効な文字を置換する関数
         def clean_sheet_name(name):
+            print(f"\n3. シート名クリーニング:")
+            print(f"元の名前: '{name}'")
+            print(f"型: {type(name)}")
+            
             if not isinstance(name, str) or not name.strip():
+                print("警告: 無効なシート名、'Unknown'を使用")
                 return 'Unknown'
+            
             # 特殊文字を置換
             invalid_chars = ['/', '\\', '?', '*', ':', '[', ']']
             cleaned_name = ''.join('_' if c in invalid_chars else c for c in name)
             # 最大31文字に制限（Excelの制限）
-            return cleaned_name[:31].strip()
+            final_name = cleaned_name[:31].strip()
+            print(f"クリーニング後の名前: '{final_name}'")
+            return final_name
 
         try:
             # ExcelWriterを使用して、院所名ごとにシートを作成
