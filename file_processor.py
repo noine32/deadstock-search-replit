@@ -37,11 +37,22 @@ class FileProcessor:
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
         try:
-            print("\n=== エラーデバッグ情報 ===")
-            print("処理開始時のデータ型:")
-            print("purchase_history_df type:", type(purchase_history_df))
-            print("inventory_df type:", type(inventory_df))
-            print("yj_code_df type:", type(yj_code_df))
+            print("\n=== データ処理開始時のデバッグ情報 ===")
+            print("1. 入力データフレームの基本情報:")
+            for name, df in {
+                "購入履歴": purchase_history_df,
+                "在庫データ": inventory_df,
+                "YJコード": yj_code_df
+            }.items():
+                print(f"\n{name}データフレーム:")
+                print(f"- 型: {type(df)}")
+                if isinstance(df, pd.DataFrame):
+                    print(f"- 行数: {len(df)}")
+                    print(f"- カラム: {df.columns.tolist()}")
+                    print("- データサンプル:")
+                    print(df.head())
+                else:
+                    print(f"警告: {name}がDataFrameではありません")
 
             print("\n=== データ処理開始 ===")
             print("1. データフレームの初期状態:")
@@ -103,9 +114,24 @@ class FileProcessor:
             inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
             
             # マージ前の状態を確認
-            print("\nマージ前のデータ確認:")
+            print("\n=== マージ前のデータ確認 ===")
             print("Inventory columns:", inventory_df.columns.tolist())
             print("Purchase history columns:", purchase_history_df.columns.tolist())
+            
+            try:
+                print("\nデータ型とフォーマットのデバッグ情報:")
+                for col in inventory_df.columns:
+                    print(f"Inventory - Column '{col}':")
+                    print(f"  Type: {inventory_df[col].dtype}")
+                    print(f"  Sample values: {inventory_df[col].head().tolist()}")
+                
+                for col in purchase_history_df.columns:
+                    print(f"Purchase History - Column '{col}':")
+                    print(f"  Type: {purchase_history_df[col].dtype}")
+                    print(f"  Sample values: {purchase_history_df[col].head().tolist()}")
+            except Exception as e:
+                print(f"データ型チェック中にエラーが発生: {str(e)}")
+                print(f"エラータイプ: {type(e)}")
             
             # 必要なカラムが存在することを確認
             required_columns = ['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']
@@ -119,16 +145,39 @@ class FileProcessor:
             
             # ＹＪコードと厚労省CDで紐付け
             try:
-                print("\n4. マージ処理:")
-                print("マージ前の状態:")
-                print("- Inventory df keys:", inventory_df['ＹＪコード'].head())
-                print("- Purchase history df keys:", purchase_history_df['厚労省CD'].head())
-                print("\nデータ型確認:")
-                print("- Inventory df['ＹＪコード'] type:", type(inventory_df['ＹＪコード']))
-                print("- Purchase history df['厚労省CD'] type:", type(purchase_history_df['厚労省CD']))
-                print("\nデータサンプル:")
-                print("- Inventory df sample:\n", inventory_df[['ＹＪコード', '薬品名']].head())
-                print("- Purchase history df sample:\n", purchase_history_df[['厚労省CD', '品名・規格']].head())
+                print("\n=== マージ処理の詳細デバッグ ===")
+                print("1. マージ前のデータ状態:")
+                print("\nInventory DataFrame:")
+                print(f"- 行数: {len(inventory_df)}")
+                print(f"- カラム: {inventory_df.columns.tolist()}")
+                print("- ＹＪコードサンプル:")
+                for idx, code in enumerate(inventory_df['ＹＪコード'].head()):
+                    print(f"  {idx + 1}: '{code}' (型: {type(code)})")
+
+                print("\nPurchase History DataFrame:")
+                print(f"- 行数: {len(purchase_history_df)}")
+                print(f"- カラム: {purchase_history_df.columns.tolist()}")
+                print("- 厚労省CDサンプル:")
+                for idx, code in enumerate(purchase_history_df['厚労省CD'].head()):
+                    print(f"  {idx + 1}: '{code}' (型: {type(code)})")
+
+                print("\n2. データ型とNULL値の確認:")
+                print("\nInventory DataFrame:")
+                for col in inventory_df.columns:
+                    null_count = inventory_df[col].isna().sum()
+                    print(f"- {col}:")
+                    print(f"  型: {inventory_df[col].dtype}")
+                    print(f"  NULL値の数: {null_count}")
+                    print(f"  最初の値: '{inventory_df[col].iloc[0]}' (型: {type(inventory_df[col].iloc[0])})")
+
+                print("\nPurchase History DataFrame:")
+                for col in purchase_history_df.columns:
+                    null_count = purchase_history_df[col].isna().sum()
+                    print(f"- {col}:")
+                    print(f"  型: {purchase_history_df[col].dtype}")
+                    print(f"  NULL値の数: {null_count}")
+                    if len(purchase_history_df) > 0:
+                        print(f"  最初の値: '{purchase_history_df[col].iloc[0]}' (型: {type(purchase_history_df[col].iloc[0])})")
                 
                 merged_df = pd.merge(
                     inventory_df,
@@ -245,22 +294,41 @@ class FileProcessor:
                                 print(f"  院所名（変換後）: '{insho_name}'")
                                 print(f"  結合後のテキスト: '{f'{houjin_name} {insho_name}'.strip()}'")
                                 
-                                # ヘッダーデータの作成
-                                header_rows = [
-                                    ['不良在庫引き取り依頼', None, None],
-                                    [None, None, None],
-                                    [f"{houjin_name} {insho_name}".strip(), None, '御中'],
-                                    [None, None, None],
-                                    ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。', None, None],
-                                    [None, None, None]
-                                ]
-                                header_data = pd.DataFrame(header_rows)
-                                
-                                print("Debug - ヘッダーデータ:")
-                                print(header_data)
-                                
-                                print("Debug - ヘッダーデータ:")
-                                print(header_data)
+                                try:
+                                    print("\n=== ヘッダー生成処理開始 ===")
+                                    print(f"1. 変数の状態確認:")
+                                    print(f"houjin_name: '{houjin_name}'")
+                                    print(f"insho_name: '{insho_name}'")
+                                    print(f"結合文字列: '{houjin_name} {insho_name}'")
+                                    
+                                    # ヘッダーデータの作成
+                                    title_row = ['不良在庫引き取り依頼', None, None]
+                                    empty_row = [None, None, None]
+                                    name_row = [f"{houjin_name} {insho_name}".strip(), None, '御中']
+                                    message_row = ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。', None, None]
+                                    
+                                    header_rows = [
+                                        title_row,
+                                        empty_row,
+                                        name_row,
+                                        empty_row,
+                                        message_row,
+                                        empty_row
+                                    ]
+                                    
+                                    print("\n2. ヘッダー行の確認:")
+                                    for i, row in enumerate(header_rows):
+                                        print(f"Row {i}: {row}")
+                                    
+                                    header_data = pd.DataFrame(header_rows)
+                                    print("\n3. 生成されたヘッダーデータ:")
+                                    print(header_data)
+                                    
+                                except Exception as e:
+                                    print(f"\nヘッダー生成中にエラーが発生:")
+                                    print(f"エラータイプ: {type(e)}")
+                                    print(f"エラー詳細: {str(e)}")
+                                    raise
                                 
                                 # ヘッダーとデータを書き込み
                                 header_data.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
