@@ -10,9 +10,15 @@ from database import Database
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 logger = logging.getLogger(__name__)
+
+# 起動時のデバッグ情報
+logger.info("アプリケーション起動")
 
 def main():
     st.set_page_config(
@@ -92,6 +98,11 @@ def main():
 
         if purchase_file and inventory_file and yj_code_file:
             try:
+                logger.info("=== データ処理開始 ===")
+                logger.debug(f"購入履歴ファイル: {purchase_file.name if purchase_file else 'None'}")
+                logger.debug(f"在庫データファイル: {inventory_file.name if inventory_file else 'None'}")
+                logger.debug(f"YJコードファイル: {yj_code_file.name if yj_code_file else 'None'}")
+                
                 with st.spinner('データを処理中...'):
                     logger.info("ファイル処理を開始します")
                     
@@ -146,7 +157,12 @@ def main():
                     st.success("データベースに保存しました")
 
             except Exception as e:
+                logger.error("=== エラー発生 ===")
+                logger.error(f"エラー種類: {type(e).__name__}")
+                logger.error(f"エラー内容: {str(e)}")
+                logger.error("スタックトレース:", exc_info=True)
                 st.error(f"エラーが発生しました: {str(e)}")
+                st.error("詳細はログファイル（app.log）を確認してください。")
 
 if __name__ == "__main__":
     main()

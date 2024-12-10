@@ -160,19 +160,36 @@ class FileProcessor:
             logger.debug(f"行数: {df.shape[0]}")
             logger.debug(f"カラム: {df.columns.tolist()}")
             logger.debug(f"データ型: {df.dtypes}")
+            logger.debug(f"データの最初の数行:\n{df.head()}")
 
             excel_buffer = io.BytesIO()
             required_columns = ['院所名', '法人名', '品名・規格', '在庫量', '単位', '新薬品コード', '使用期限', 'ロット番号', '引取り可能数']
             
-            # カラムの存在確認
+            # カラムの存在確認とデータ型の検証
+            logger.debug("必要なカラムの確認を開始")
+            
+            # カラムの存在確認と型チェック
             missing_columns = [col for col in required_columns if col not in df.columns]
             if missing_columns:
-                raise ValueError(f"必要なカラムがありません: {missing_columns}")
+                error_msg = f"必要なカラムがありません: {missing_columns}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+
+            logger.debug("データ型の検証を開始")
+            for col in df.columns:
+                logger.debug(f"カラム '{col}' のデータ型: {df[col].dtype}")
+                # null値のチェック
+                null_count = df[col].isnull().sum()
+                if null_count > 0:
+                    logger.warning(f"カラム '{col}' に {null_count} 個のnull値が存在します")
 
             with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                logger.debug("ExcelWriterの初期化完了")
                 unique_names = df['院所名'].unique()
                 logger.debug(f"\n処理対象院所数: {len(unique_names)}")
 
+                logger.debug(f"処理対象院所数: {len(unique_names)}")
+                
                 for name in unique_names:
                     try:
                         if pd.isna(name):
@@ -180,7 +197,13 @@ class FileProcessor:
                             continue
                             
                         sheet_name = FileProcessor.clean_sheet_name(str(name))
-                        logger.debug(f"処理中の院所: {name} (シート名: {sheet_name})")
+                        logger.debug(f"処理中の院所: {name}")
+                        logger.debug(f"クリーニング後のシート名: '{sheet_name}'")
+                        
+                        # シート名の検証
+                        if not sheet_name or len(sheet_name.strip()) == 0:
+                            logger.error(f"無効なシート名が生成されました: '{sheet_name}'")
+                            continue
                         
                         sheet_df = df[df['院所名'] == name].copy()
                         if sheet_df.empty:
