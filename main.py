@@ -1,8 +1,18 @@
 import streamlit as st
 import pandas as pd
+import logging
+import sys
 from auth import Auth
 from file_processor import FileProcessor
 from database import Database
+
+# ロギングの設定
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
 
 def main():
     st.set_page_config(
@@ -83,30 +93,49 @@ def main():
         if purchase_file and inventory_file and yj_code_file:
             try:
                 with st.spinner('データを処理中...'):
+                    logger.info("ファイル処理を開始します")
+                    
                     # ファイル読み込み
+                    logger.debug("購入履歴ファイルを読み込みます")
                     purchase_df = FileProcessor.read_excel(purchase_file)
+                    logger.debug(f"購入履歴データ: {purchase_df.shape} 行, カラム: {purchase_df.columns.tolist()}")
+                    
+                    logger.debug("在庫データファイルを読み込みます")
                     inventory_df = FileProcessor.read_csv(inventory_file, file_type='inventory')
+                    logger.debug(f"在庫データ: {inventory_df.shape} 行, カラム: {inventory_df.columns.tolist()}")
+                    
+                    logger.debug("YJコードファイルを読み込みます")
                     yj_code_df = FileProcessor.read_csv(yj_code_file)
+                    logger.debug(f"YJコードデータ: {yj_code_df.shape} 行, カラム: {yj_code_df.columns.tolist()}")
 
                     # データ処理
+                    logger.info("データ処理を開始します")
                     result_df = FileProcessor.process_data(
                         purchase_df,
                         inventory_df,
                         yj_code_df
                     )
+                    logger.debug(f"処理結果: {result_df.shape} 行, カラム: {result_df.columns.tolist()}")
 
                     # 結果の表示
                     st.subheader("処理結果")
                     st.dataframe(result_df)
 
-                    # Excelダウンロードボタン
+                    # Excelファイル生成
+                    logger.info("Excelファイルを生成します")
                     excel = FileProcessor.generate_excel(result_df)
-                    st.download_button(
-                        label="Excel形式でダウンロード",
-                        data=excel,
-                        file_name="processed_inventory.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                    
+                    if excel is not None:
+                        logger.debug("Excelファイルの生成が完了しました")
+                        st.download_button(
+                            label="Excel形式でダウンロード",
+                            data=excel,
+                            file_name="processed_inventory.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    else:
+                        logger.error("Excelファイルの生成に失敗しました")
+                        st.error("Excelファイルの生成に失敗しました")
 
                     
 
