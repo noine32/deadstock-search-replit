@@ -93,7 +93,7 @@ class FileProcessor:
             cleaned_name = ''.join('_' if c in invalid_chars else c for c in name)
             # 最大31文字に制限（Excelの制限）
             return cleaned_name[:31].strip()
-        
+
         # ExcelWriterを使用して、院所名ごとにシートを作成
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
             # 院所名ごとにシートを作成（空の値を除外）
@@ -109,6 +109,9 @@ class FileProcessor:
                         
                         # 表示用のカラムから法人名と院所名を除外
                         display_df = sheet_df.drop(['法人名', '院所名'], axis=1)
+                        
+                        # 「引取り可能数」列を追加
+                        display_df.insert(display_df.columns.get_loc('ロット番号') + 1, '引取り可能数', '')
                         
                         # ヘッダー情報を作成
                         header_data = [
@@ -126,55 +129,27 @@ class FileProcessor:
                         # ヘッダーとデータを書き込み
                         header_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
                         display_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
+                        
+                        # シートを取得してフォーマットを設定
+                        worksheet = writer.sheets[sheet_name]
+                        
+                        # 列幅の設定
+                        worksheet.column_dimensions['A'].width = 35  # 255ピクセルは約35文字幅
+                        for col in ['B', 'C', 'D', 'E', 'F', 'G']:  # 追加した引取り可能数列も含む
+                            worksheet.column_dimensions[col].auto_fit = True
+                        
+                        # 行の高さを設定（30ピクセル）
+                        for row in range(1, worksheet.max_row + 1):
+                            worksheet.row_dimensions[row].height = 30
+                        
+                        # フォントサイズと太字の設定
+                        cell_a1 = worksheet['A1']
+                        cell_a1.font = cell_a1.font.copy(size=16)
+                        
+                        cell_a3 = worksheet['A3']
+                        cell_a3.font = cell_a3.font.copy(size=14, bold=True)
         
         excel_buffer.seek(0)
         return excel_buffer
 
-    @staticmethod
-    def generate_pdf(df):
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-        import io
-
-        # 日本語フォントの設定
-        pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
-
-        # PDFバッファの作成
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=landscape(A4),
-            rightMargin=30,
-            leftMargin=30,
-            topMargin=30,
-            bottomMargin=30
-        )
-
-        # テーブルデータの準備
-        data = [df.columns.tolist()] + df.values.tolist()
-        table = Table(data)
-        
-        # テーブルスタイルの設定
-        style = TableStyle([
-            ('FONT', (0, 0), (-1, -1), 'HeiseiKakuGo-W5'),
-            ('FONT', (0, 0), (-1, 0), 'HeiseiKakuGo-W5'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('BOX', (0, 0), (-1, -1), 2, colors.black),
-            ('LINEBELOW', (0, 0), (-1, 0), 2, colors.black),
-        ])
-        table.setStyle(style)
-
-        # PDFの生成
-        elements = []
-        elements.append(table)
-        doc.build(elements)
-
-        buffer.seek(0)
-        return buffer
+    

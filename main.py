@@ -108,14 +108,7 @@ def main():
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
-                    # PDFダウンロードボタン
-                    pdf_buffer = FileProcessor.generate_pdf(result_df)
-                    st.download_button(
-                        label="PDF形式でダウンロード",
-                        data=pdf_buffer,
-                        file_name="processed_inventory.pdf",
-                        mime="application/pdf"
-                    )
+                    
 
                     # データベースへの保存
                     db = Database()
