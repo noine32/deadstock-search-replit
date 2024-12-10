@@ -118,10 +118,12 @@ class FileProcessor:
                         display_df.insert(display_df.columns.get_loc('ロット番号') + 1, '引取り可能数', '')
                         
                         # ヘッダー情報を作成
+                        houjin_str = str(houjin_name) if houjin_name else ''
+                        insho_str = str(insho_name) if insho_name else ''
                         header_data = [
                             ['不良在庫引き取り依頼'],
                             [''],
-                            [' '.join([str(houjin_name or '').strip(), str(insho_name or '').strip(), '御中'])],
+                            [f'{houjin_str.strip()} {insho_str.strip()} 御中'],
                             [''],
                             ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                             ['']
