@@ -36,10 +36,16 @@ class FileProcessor:
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
         try:
-            print("処理開始: データフレームの初期状態")
-            print("Inventory shape:", inventory_df.shape)
-            print("Purchase history shape:", purchase_history_df.shape)
-            print("YJ code shape:", yj_code_df.shape)
+            print("\n=== データ処理開始 ===")
+            print("1. データフレームの初期状態:")
+            print(f"Inventory shape: {inventory_df.shape}")
+            print(f"Purchase history shape: {purchase_history_df.shape}")
+            print(f"YJ code shape: {yj_code_df.shape}")
+            
+            print("\n2. 各データフレームのカラム:")
+            print("Inventory columns:", inventory_df.columns.tolist())
+            print("Purchase history columns:", purchase_history_df.columns.tolist())
+            print("YJ code columns:", yj_code_df.columns.tolist())
             
             # データの前処理
             inventory_df = inventory_df.fillna('')
@@ -185,10 +191,18 @@ class FileProcessor:
                                 houjin_name = str(sheet_df['法人名'].iloc[0]).strip() if not pd.isna(sheet_df['法人名'].iloc[0]) else ''
                                 insho_name = str(sheet_df['院所名'].iloc[0]).strip() if not pd.isna(sheet_df['院所名'].iloc[0]) else ''
                                 
-                                # デバッグ情報の出力
-                                print(f"Debug - 処理前の値:")
-                                print(f"houjin_name: '{houjin_name}'")
-                                print(f"insho_name: '{insho_name}'")
+                                # デバッグ情報の詳細出力
+                                print("\n=== ヘッダー生成処理 ===")
+                                print(f"1. シート名: {sheet_name}")
+                                print("2. データフレーム情報:")
+                                print(f"  - 行数: {sheet_df.shape[0]}")
+                                print(f"  - カラム: {sheet_df.columns.tolist()}")
+                                print("\n3. 値の確認:")
+                                print(f"  法人名（生データ）: {sheet_df['法人名'].iloc[0]}")
+                                print(f"  院所名（生データ）: {sheet_df['院所名'].iloc[0]}")
+                                print(f"  法人名（変換後）: '{houjin_name}'")
+                                print(f"  院所名（変換後）: '{insho_name}'")
+                                print(f"  結合後のテキスト: '{f'{houjin_name} {insho_name}'.strip()}'")
                                 
                                 # ヘッダーデータの作成
                                 header_rows = [
