@@ -152,11 +152,18 @@ class FileProcessor:
                                 # 「引取り可能数」列を追加
                                 display_df.insert(display_df.columns.get_loc('ロット番号') + 1, '引取り可能数', '')
                                 
+                                # デバッグ用のログ出力
+                                print(f"Debug - houjin_name: {houjin_name}, insho_name: {insho_name}")
+                                
+                                # ヘッダー文字列の作成
+                                header_text = f"{str(houjin_name or '')} {str(insho_name or '')}"
+                                print(f"Debug - header_text: {header_text}")
+                                
                                 # ヘッダーデータの作成
                                 header_data = pd.DataFrame([
                                     ['不良在庫引き取り依頼'],
                                     [''],
-                                    [houjin_name + ' ' + insho_name if houjin_name and insho_name else '', '', '御中'],
+                                    [header_text.strip(), '', '御中'],
                                     [''],
                                     ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                                     ['']
