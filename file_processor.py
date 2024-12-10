@@ -156,7 +156,7 @@ class FileProcessor:
                                 header_data = pd.DataFrame([
                                     ['不良在庫引き取り依頼'],
                                     [''],
-                                    [houjin_name + ' ' + insho_name, '', '御中'],
+                                    [houjin_name, insho_name, '御中'],
                                     [''],
                                     ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                                     ['']
@@ -178,15 +178,25 @@ class FileProcessor:
                                 for row in range(1, worksheet.max_row + 1):
                                     worksheet.row_dimensions[row].height = 30
                                 
-                                # タイトルのフォント設定
+                                # デフォルトのフォントサイズを14に設定
+                                for row in worksheet.rows:
+                                    for cell in row:
+                                        if cell.font is None:
+                                            cell.font = cell.font.copy(size=14)
+                                        else:
+                                            cell.font = cell.font.copy(size=14)
+                                
+                                # タイトルのフォント設定（サイズ16）
                                 cell_a1 = worksheet['A1']
                                 cell_a1.font = cell_a1.font.copy(size=16)
                                 
-                                # 法人名・院所名と御中のフォント設定
-                                cell_a3 = worksheet['A3']  # 法人名・院所名
+                                # 法人名、院所名、御中のフォント設定（サイズ14、太字）
+                                cell_a3 = worksheet['A3']  # 法人名
+                                cell_b3 = worksheet['B3']  # 院所名
                                 cell_c3 = worksheet['C3']  # 御中
                                 font_style = cell_a3.font.copy(size=14, bold=True)
                                 cell_a3.font = font_style
+                                cell_b3.font = font_style
                                 cell_c3.font = font_style
                                 
                             except Exception as e:
