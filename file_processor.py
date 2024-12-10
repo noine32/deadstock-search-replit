@@ -35,25 +35,25 @@ class FileProcessor:
 
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
-        # 在庫金額CSVから薬品名とYJコードのマッピングを作成
-        name_to_yj = yj_code_df.set_index('薬品名')['YJコード'].to_dict()
+        # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
+        name_to_yj = yj_code_df.set_index('薬品名')['ＹＪコード'].to_dict()
         
-        # 不良在庫データに対してYJコードを設定
-        inventory_df['YJコード'] = inventory_df['薬品名'].map(name_to_yj)
+        # 不良在庫データに対してＹＪコードを設定
+        inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(name_to_yj)
         
         # OMEC他院所データ（購入履歴）との結合
-        # YJコードと厚労省CDで紐付け
+        # ＹＪコードと厚労省CDで紐付け
         merged_df = pd.merge(
             inventory_df,
             purchase_history_df[['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']],
-            left_on='YJコード',
+            left_on='ＹＪコード',
             right_on='厚労省CD',
             how='left'
         )
         
         # 必要なカラムの選択と名前の変更
         result_df = merged_df[[
-            'YJコード',
+            'ＹＪコード',
             '薬品名',
             '在庫数量',
             '有効期限',
