@@ -56,4 +56,7 @@ class FileProcessor:
 
     @staticmethod
     def generate_csv(df):
-        return df.to_csv(index=False, encoding='utf-8-sig')
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+        # BOMを追加
+        return '\ufeff' + csv_buffer.getvalue()
