@@ -15,7 +15,8 @@ class FileProcessor:
             df = pd.read_excel(file, engine='openpyxl')
             return df
         except Exception as e:
-            raise Exception(f"Excelファイルの読み込みエラー: {str(e)}")
+            print(f"Excelファイルの読み込みエラー: {str(e)}")
+            raise
 
     @staticmethod
     def read_csv(file, file_type='default'):
@@ -24,18 +25,24 @@ class FileProcessor:
             encoding = FileProcessor.detect_encoding(file_bytes)
             
             if file_type == 'inventory':
-                # 不良在庫データの場合、最初の7行をスキップ
                 df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding, skiprows=7)
             else:
                 df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding)
             
             return df
         except Exception as e:
-            raise Exception(f"CSVファイルの読み込みエラー: {str(e)}")
+            print(f"CSVファイルの読み込みエラー: {str(e)}")
+            raise
 
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
         try:
+            print("\n=== エラーデバッグ情報 ===")
+            print("処理開始時のデータ型:")
+            print("purchase_history_df type:", type(purchase_history_df))
+            print("inventory_df type:", type(inventory_df))
+            print("yj_code_df type:", type(yj_code_df))
+
             print("\n=== データ処理開始 ===")
             print("1. データフレームの初期状態:")
             print(f"Inventory shape: {inventory_df.shape}")
@@ -110,43 +117,46 @@ class FileProcessor:
                 print("マージ後のデータ形状:", merged_df.shape)
             except Exception as e:
                 print(f"マージ中にエラーが発生: {str(e)}")
-                return pd.DataFrame()  # エラーが発生した場合は空のデータフレームを返す
+                raise
             
-            # 院所名別にデータを整理
             # 必要なカラムのみを選択
-            result_df = merged_df[[
-                '品名・規格',
-                '在庫量',
-                '単位',
-                '新薬品ｺｰﾄﾞ',
-                '使用期限',
-                'ロット番号',
-                '法人名',
-                '院所名'
-            ]].copy()
+            try:
+                result_df = merged_df[[
+                    '品名・規格',
+                    '在庫量',
+                    '単位',
+                    '新薬品ｺｰﾄﾞ',
+                    '使用期限',
+                    'ロット番号',
+                    '法人名',
+                    '院所名'
+                ]].copy()
+                
+                # 空の値を空文字列に変換
+                result_df = result_df.fillna('')
+                
+                # 空の品名・規格を持つ行を削除
+                result_df = result_df[result_df['品名・規格'].notna() & (result_df['品名・規格'] != '')].copy()
+                
+                # 院所名でソート
+                result_df = result_df.sort_values(['法人名', '院所名'])
+                
+                print("\n最終的なデータフレームの状態:")
+                print("Columns:", result_df.columns.tolist())
+                print("データ型:")
+                print(result_df.dtypes)
+                print("\nサンプルデータ:")
+                print(result_df.head())
+                
+                return result_df
             
-            # 空の値を空文字列に変換
-            result_df = result_df.fillna('')
-            
-            # 空の品名・規格を持つ行を削除
-            result_df = result_df[result_df['品名・規格'].notna() & (result_df['品名・規格'] != '')].copy()
-            
-            # 院所名でソート
-            result_df = result_df.sort_values(['法人名', '院所名'])
-            
-            # 結果のデータフレームの内容を確認
-            print("\n最終的なデータフレームの状態:")
-            print("Columns:", result_df.columns.tolist())
-            print("データ型:")
-            print(result_df.dtypes)
-            print("\nサンプルデータ:")
-            print(result_df.head())
-            
-            return result_df
+            except Exception as e:
+                print(f"結果データフレーム作成中にエラーが発生: {str(e)}")
+                raise
             
         except Exception as e:
             print(f"データ処理中にエラーが発生: {str(e)}")
-            return pd.DataFrame()
+            raise
 
     @staticmethod
     def generate_excel(df):
@@ -175,19 +185,6 @@ class FileProcessor:
                         if not sheet_df.empty:
                             try:
                                 # 法人名と院所名を取得（ヘッダー用）
-                                houjin_name = str(sheet_df['法人名'].iloc[0] or '').strip()
-                                insho_name = str(sheet_df['院所名'].iloc[0] or '').strip()
-                                
-                                # 表示用のカラムから法人名と院所名を除外
-                                display_df = sheet_df.drop(['法人名', '院所名'], axis=1)
-                                
-                                # 「引取り可能数」列を追加
-                                display_df.insert(display_df.columns.get_loc('ロット番号') + 1, '引取り可能数', '')
-                                
-                                # デバッグ用のログ出力
-                                print(f"Debug - houjin_name: {houjin_name}, insho_name: {insho_name}")
-                                
-                                # ヘッダー文字列の作成
                                 houjin_name = str(sheet_df['法人名'].iloc[0]).strip() if not pd.isna(sheet_df['法人名'].iloc[0]) else ''
                                 insho_name = str(sheet_df['院所名'].iloc[0]).strip() if not pd.isna(sheet_df['院所名'].iloc[0]) else ''
                                 
@@ -220,7 +217,7 @@ class FileProcessor:
                                 
                                 # ヘッダーとデータを書き込み
                                 header_data.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
-                                display_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
+                                sheet_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
                                 
                                 # シートを取得してフォーマットを設定
                                 worksheet = writer.sheets[sheet_name]
@@ -241,10 +238,7 @@ class FileProcessor:
                                 # デフォルトのフォントサイズを14に設定
                                 for row in worksheet.rows:
                                     for cell in row:
-                                        if cell.font is None:
-                                            cell.font = cell.font.copy(size=14)
-                                        else:
-                                            cell.font = cell.font.copy(size=14)
+                                        cell.font = cell.font.copy(size=14)
                                 
                                 # タイトルのフォント設定（サイズ16）
                                 cell_a1 = worksheet['A1']
