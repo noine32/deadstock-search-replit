@@ -97,16 +97,36 @@ class FileProcessor:
         
         # ExcelWriterを使用して、院所名ごとにシートを作成
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            # 全データを「全体」シートに出力
-            df.to_excel(writer, sheet_name='全体', index=False)
-            
             # 院所名ごとにシートを作成（空の値を除外）
             for name in df['院所名'].unique():
                 if pd.notna(name) and str(name).strip():  # 空の値をスキップ
                     sheet_name = clean_sheet_name(str(name))
-                    sheet_df = df[df['院所名'] == name]
+                    # 該当する院所のデータを抽出
+                    sheet_df = df[df['院所名'] == name].copy()
                     if not sheet_df.empty:
-                        sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                        # 法人名と院所名を取得（ヘッダー用）
+                        houjin_name = sheet_df['法人名'].iloc[0]
+                        insho_name = sheet_df['院所名'].iloc[0]
+                        
+                        # 表示用のカラムから法人名と院所名を除外
+                        sheet_df = sheet_df.drop(['法人名', '院所名'], axis=1)
+                        
+                        # ヘッダー情報を作成
+                        header_data = [
+                            ['不良在庫引き取り依頼'],
+                            [],
+                            [f'{houjin_name} {insho_name} 御中'],
+                            [],
+                            ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
+                            []
+                        ]
+                        
+                        # ヘッダー情報をDataFrameに変換
+                        header_df = pd.DataFrame(header_data)
+                        
+                        # ヘッダーとデータを書き込み
+                        header_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+                        sheet_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
         
         excel_buffer.seek(0)
         return excel_buffer
