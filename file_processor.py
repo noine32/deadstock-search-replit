@@ -130,73 +130,72 @@ class FileProcessor:
             # 最大31文字に制限（Excelの制限）
             return cleaned_name[:31].strip()
 
-        # ExcelWriterを使用して、院所名ごとにシートを作成
-        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            # 院所名ごとにシートを作成（空の値を除外）
-            for name in df['院所名'].unique():
-                if pd.notna(name) and str(name).strip():  # 空の値をスキップ
-                    sheet_name = clean_sheet_name(str(name))
-                    # 該当する院所のデータを抽出
-                    sheet_df = df[df['院所名'] == name].copy()
-                    if not sheet_df.empty:
-                        # 法人名と院所名を取得（ヘッダー用）
-                        houjin_name = sheet_df['法人名'].iloc[0]
-                        insho_name = sheet_df['院所名'].iloc[0]
+        try:
+            # ExcelWriterを使用して、院所名ごとにシートを作成
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                # 院所名ごとにシートを作成（空の値を除外）
+                for name in df['院所名'].unique():
+                    if pd.notna(name) and str(name).strip():  # 空の値をスキップ
+                        sheet_name = clean_sheet_name(str(name))
+                        # 該当する院所のデータを抽出
+                        sheet_df = df[df['院所名'] == name].copy()
                         
-                        # 表示用のカラムから法人名と院所名を除外
-                        display_df = sheet_df.drop(['法人名', '院所名'], axis=1)
-                        
-                        # 「引取り可能数」列を追加
-                        display_df.insert(display_df.columns.get_loc('ロット番号') + 1, '引取り可能数', '')
-                        
-                        # ヘッダー情報を作成
-                        houjin_str = str(houjin_name) if houjin_name else ''
-                        insho_str = str(insho_name) if insho_name else ''
-                        header_data = [
-                            ['不良在庫引き取り依頼'],
-                            [''],
-                            [f'{houjin_str.strip()} {insho_str.strip()}', '', '御中'],
-                            [''],
-                            ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
-                            ['']
-                        ]
-                        
-                        try:
-                            # ヘッダー情報をDataFrameに変換
-                            header_df = pd.DataFrame(header_data)
+                        if not sheet_df.empty:
+                            try:
+                                # 法人名と院所名を取得（ヘッダー用）
+                                houjin_name = str(sheet_df['法人名'].iloc[0] or '').strip()
+                                insho_name = str(sheet_df['院所名'].iloc[0] or '').strip()
+                                
+                                # 表示用のカラムから法人名と院所名を除外
+                                display_df = sheet_df.drop(['法人名', '院所名'], axis=1)
+                                
+                                # 「引取り可能数」列を追加
+                                display_df.insert(display_df.columns.get_loc('ロット番号') + 1, '引取り可能数', '')
+                                
+                                # ヘッダーデータの作成
+                                header_data = pd.DataFrame([
+                                    ['不良在庫引き取り依頼'],
+                                    [''],
+                                    [houjin_name + ' ' + insho_name, '', '御中'],
+                                    [''],
+                                    ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
+                                    ['']
+                                ])
+                                
+                                # ヘッダーとデータを書き込み
+                                header_data.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+                                display_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
+                                
+                                # シートを取得してフォーマットを設定
+                                worksheet = writer.sheets[sheet_name]
+                                
+                                # 列幅の設定
+                                worksheet.column_dimensions['A'].width = 35
+                                for col in ['B', 'C', 'D', 'E', 'F', 'G']:
+                                    worksheet.column_dimensions[col].auto_fit = True
+                                
+                                # 行の高さを設定（30ピクセル）
+                                for row in range(1, worksheet.max_row + 1):
+                                    worksheet.row_dimensions[row].height = 30
+                                
+                                # タイトルのフォント設定
+                                cell_a1 = worksheet['A1']
+                                cell_a1.font = cell_a1.font.copy(size=16)
+                                
+                                # 法人名・院所名と御中のフォント設定
+                                cell_a3 = worksheet['A3']  # 法人名・院所名
+                                cell_c3 = worksheet['C3']  # 御中
+                                font_style = cell_a3.font.copy(size=14, bold=True)
+                                cell_a3.font = font_style
+                                cell_c3.font = font_style
+                                
+                            except Exception as e:
+                                print(f"シート '{sheet_name}' の処理中にエラーが発生: {str(e)}")
+                                continue
                             
-                            # ヘッダーとデータを書き込み
-                            header_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
-                            display_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
-                            
-                            # シートを取得してフォーマットを設定
-                            worksheet = writer.sheets[sheet_name]
-                            
-                            # 列幅の設定
-                            worksheet.column_dimensions['A'].width = 35  # 255ピクセルは約35文字幅
-                            for col in ['B', 'C', 'D', 'E', 'F', 'G']:  # 追加した引取り可能数列も含む
-                                worksheet.column_dimensions[col].auto_fit = True
-                            
-                            # 行の高さを設定（30ピクセル）
-                            for row in range(1, worksheet.max_row + 1):
-                                worksheet.row_dimensions[row].height = 30
-                            
-                            # フォントサイズと太字の設定
-                            cell_a1 = worksheet['A1']
-                            cell_a1.font = cell_a1.font.copy(size=16)
-                            
-                            # A3セルとC3セルのフォント設定（法人名・院所名と御中）
-                            cell_a3 = worksheet['A3']
-                            cell_c3 = worksheet['C3']
-                            font_style = cell_a3.font.copy(size=14, bold=True)
-                            cell_a3.font = font_style
-                            cell_c3.font = font_style
-                            
-                        except Exception as e:
-                            print(f"シート '{sheet_name}' の処理中にエラーが発生: {str(e)}")
-                            continue
-        
+        except Exception as e:
+            print(f"Excel生成中にエラーが発生: {str(e)}")
+            return None
+
         excel_buffer.seek(0)
         return excel_buffer
-
-    
