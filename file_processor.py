@@ -156,7 +156,7 @@ class FileProcessor:
                                 header_data = pd.DataFrame([
                                     ['不良在庫引き取り依頼'],
                                     [''],
-                                    [houjin_name, insho_name, '御中'],
+                                    [houjin_name + ' ' + insho_name if houjin_name and insho_name else '', '', '御中'],
                                     [''],
                                     ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                                     ['']
@@ -170,9 +170,13 @@ class FileProcessor:
                                 worksheet = writer.sheets[sheet_name]
                                 
                                 # 列幅の設定
-                                worksheet.column_dimensions['A'].width = 35
-                                for col in ['B', 'C', 'D', 'E', 'F', 'G']:
-                                    worksheet.column_dimensions[col].auto_fit = True
+                                worksheet.column_dimensions['A'].width = 35  # 品名・規格
+                                worksheet.column_dimensions['B'].width = 15  # 在庫量
+                                worksheet.column_dimensions['C'].width = 10  # 単位
+                                worksheet.column_dimensions['D'].width = 15  # 新薬品コード
+                                worksheet.column_dimensions['E'].width = 15  # 使用期限
+                                worksheet.column_dimensions['F'].width = 15  # ロット番号
+                                worksheet.column_dimensions['G'].width = 20  # 引取り可能数
                                 
                                 # 行の高さを設定（30ピクセル）
                                 for row in range(1, worksheet.max_row + 1):
