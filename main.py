@@ -57,9 +57,9 @@ def main():
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.subheader("購入履歴 (XLSX)")
+            st.subheader("OMEC他院所 (XLSX)")
             purchase_file = st.file_uploader(
-                "購入履歴ファイルを選択",
+                "OMEC他院所ファイルを選択",
                 type=['xlsx'],
                 key="purchase_history"
             )
@@ -73,9 +73,9 @@ def main():
             )
 
         with col3:
-            st.subheader("YJコードマスター (CSV)")
+            st.subheader("在庫金額 (CSV)")
             yj_code_file = st.file_uploader(
-                "YJコードマスターを選択",
+                "在庫金額ファイルを選択",
                 type=['csv'],
                 key="yj_code"
             )
