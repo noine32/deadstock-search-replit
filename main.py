@@ -108,6 +108,15 @@ def main():
                         mime="text/csv"
                     )
 
+                    # PDFダウンロードボタン
+                    pdf_buffer = FileProcessor.generate_pdf(result_df)
+                    st.download_button(
+                        label="PDF形式でダウンロード",
+                        data=pdf_buffer,
+                        file_name="processed_inventory.pdf",
+                        mime="application/pdf"
+                    )
+
                     # データベースへの保存
                     db = Database()
                     inventory_data = result_df.values.tolist()

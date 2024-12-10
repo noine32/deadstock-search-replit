@@ -60,3 +60,52 @@ class FileProcessor:
         df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
         # BOMを追加
         return '\ufeff' + csv_buffer.getvalue()
+
+    @staticmethod
+    def generate_pdf(df):
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        import io
+
+        # 日本語フォントの設定
+        pdfmetrics.registerFont(UnicodeCIDFont('HeiseiKakuGo-W5'))
+
+        # PDFバッファの作成
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(A4),
+            rightMargin=30,
+            leftMargin=30,
+            topMargin=30,
+            bottomMargin=30
+        )
+
+        # テーブルデータの準備
+        data = [df.columns.tolist()] + df.values.tolist()
+        table = Table(data)
+        
+        # テーブルスタイルの設定
+        style = TableStyle([
+            ('FONT', (0, 0), (-1, -1), 'HeiseiKakuGo-W5'),
+            ('FONT', (0, 0), (-1, 0), 'HeiseiKakuGo-W5'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('BOX', (0, 0), (-1, -1), 2, colors.black),
+            ('LINEBELOW', (0, 0), (-1, 0), 2, colors.black),
+        ])
+        table.setStyle(style)
+
+        # PDFの生成
+        elements = []
+        elements.append(table)
+        doc.build(elements)
+
+        buffer.seek(0)
+        return buffer
