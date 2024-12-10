@@ -35,100 +35,112 @@ class FileProcessor:
 
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
-        print("処理開始: データフレームの初期状態")
-        print(f"Inventory shape: {inventory_df.shape}")
-        print(f"Purchase history shape: {purchase_history_df.shape}")
-        print(f"YJ code shape: {yj_code_df.shape}")
-        
-        # データフレームの内容を確認
-        print("\nInventory columns:")
-        for col in inventory_df.columns:
-            print(f"Column: {col}, Type: {inventory_df[col].dtype}")
-            print("Sample values:", inventory_df[col].head())
-        
-        # 空の薬品名を持つ行を削除
-        inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')].copy()
-        print("空の薬品名を削除後の inventory shape:", inventory_df.shape)
-        
-        # データフレームの型チェックとNaN値の処理
-        for df_name, df in {"inventory": inventory_df, "purchase_history": purchase_history_df, "yj_code": yj_code_df}.items():
-            if not isinstance(df, pd.DataFrame):
-                print(f"Warning: {df_name} is not a DataFrame")
-                continue
-            for col in df.columns:
-                df[col] = df[col].fillna('').astype(str)
-        
-        # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
-        if not yj_code_df.empty:
-            yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
-        else:
-            print("Warning: YJ code DataFrame is empty")
-            yj_mapping = {}
-        
-        # 不良在庫データに対してＹＪコードと単位を設定
-        inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[0])
-        inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
-        
-        # マージ前の状態を確認
-        print("\nマージ前のデータ確認:")
-        print("Inventory columns:", inventory_df.columns.tolist())
-        print("Purchase history columns:", purchase_history_df.columns.tolist())
-        
-        # 必要なカラムが存在することを確認
-        required_columns = ['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']
-        missing_columns = [col for col in required_columns if col not in purchase_history_df.columns]
-        
-        if missing_columns:
-            print(f"Warning: Missing columns in purchase_history_df: {missing_columns}")
-            # 不足しているカラムを空の文字列で追加
-            for col in missing_columns:
-                purchase_history_df[col] = ''
-        
-        # ＹＪコードと厚労省CDで紐付け
         try:
-            merged_df = pd.merge(
-                inventory_df,
-                purchase_history_df[required_columns],
-                left_on='ＹＪコード',
-                right_on='厚労省CD',
-                how='left'
-            )
-            print("マージ後のデータ形状:", merged_df.shape)
+            print("処理開始: データフレームの初期状態")
+            print("Inventory shape:", inventory_df.shape)
+            print("Purchase history shape:", purchase_history_df.shape)
+            print("YJ code shape:", yj_code_df.shape)
+            
+            # データの前処理
+            inventory_df = inventory_df.fillna('')
+            purchase_history_df = purchase_history_df.fillna('')
+            yj_code_df = yj_code_df.fillna('')
+            
+            # データ型の確認と変換
+            for col in inventory_df.columns:
+                if inventory_df[col].dtype == 'object':
+                    inventory_df[col] = inventory_df[col].astype(str)
+                print(f"Column: {col}")
+                print(f"Type: {inventory_df[col].dtype}")
+                print(f"First 5 values: {inventory_df[col].head().tolist()}")
+        
+            # 空の薬品名を持つ行を削除
+            inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')].copy()
+            print("空の薬品名を削除後の inventory shape:", inventory_df.shape)
+            
+            # データフレームの型チェックとNaN値の処理
+            for df_name, df in {"inventory": inventory_df, "purchase_history": purchase_history_df, "yj_code": yj_code_df}.items():
+                if not isinstance(df, pd.DataFrame):
+                    print(f"Warning: {df_name} is not a DataFrame")
+                    continue
+                for col in df.columns:
+                    df[col] = df[col].fillna('').astype(str)
+            
+            # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
+            if not yj_code_df.empty:
+                yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
+            else:
+                print("Warning: YJ code DataFrame is empty")
+                yj_mapping = {}
+            
+            # 不良在庫データに対してＹＪコードと単位を設定
+            inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[0])
+            inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
+            
+            # マージ前の状態を確認
+            print("\nマージ前のデータ確認:")
+            print("Inventory columns:", inventory_df.columns.tolist())
+            print("Purchase history columns:", purchase_history_df.columns.tolist())
+            
+            # 必要なカラムが存在することを確認
+            required_columns = ['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']
+            missing_columns = [col for col in required_columns if col not in purchase_history_df.columns]
+            
+            if missing_columns:
+                print(f"Warning: Missing columns in purchase_history_df: {missing_columns}")
+                # 不足しているカラムを空の文字列で追加
+                for col in missing_columns:
+                    purchase_history_df[col] = ''
+            
+            # ＹＪコードと厚労省CDで紐付け
+            try:
+                merged_df = pd.merge(
+                    inventory_df,
+                    purchase_history_df[required_columns],
+                    left_on='ＹＪコード',
+                    right_on='厚労省CD',
+                    how='left'
+                )
+                print("マージ後のデータ形状:", merged_df.shape)
+            except Exception as e:
+                print(f"マージ中にエラーが発生: {str(e)}")
+                return pd.DataFrame()  # エラーが発生した場合は空のデータフレームを返す
+            
+            # 院所名別にデータを整理
+            # 必要なカラムのみを選択
+            result_df = merged_df[[
+                '品名・規格',
+                '在庫量',
+                '単位',
+                '新薬品ｺｰﾄﾞ',
+                '使用期限',
+                'ロット番号',
+                '法人名',
+                '院所名'
+            ]].copy()
+            
+            # 空の値を空文字列に変換
+            result_df = result_df.fillna('')
+            
+            # 空の品名・規格を持つ行を削除
+            result_df = result_df[result_df['品名・規格'].notna() & (result_df['品名・規格'] != '')].copy()
+            
+            # 院所名でソート
+            result_df = result_df.sort_values(['法人名', '院所名'])
+            
+            # 結果のデータフレームの内容を確認
+            print("\n最終的なデータフレームの状態:")
+            print("Columns:", result_df.columns.tolist())
+            print("データ型:")
+            print(result_df.dtypes)
+            print("\nサンプルデータ:")
+            print(result_df.head())
+            
+            return result_df
+            
         except Exception as e:
-            print(f"マージ中にエラーが発生: {str(e)}")
-            return pd.DataFrame()  # エラーが発生した場合は空のデータフレームを返す
-        
-        # 院所名別にデータを整理
-        # 必要なカラムのみを選択
-        result_df = merged_df[[
-            '品名・規格',
-            '在庫量',
-            '単位',
-            '新薬品ｺｰﾄﾞ',
-            '使用期限',
-            'ロット番号',
-            '法人名',
-            '院所名'
-        ]].copy()
-        
-        # 空の値を空文字列に変換
-        result_df = result_df.fillna('')
-        
-        # 空の品名・規格を持つ行を削除
-        result_df = result_df[result_df['品名・規格'].notna() & (result_df['品名・規格'] != '')].copy()
-        
-        # 院所名でソート
-        result_df = result_df.sort_values(['法人名', '院所名'])
-        
-        # 結果のデータフレームの内容を確認
-        print("\n最終的なデータフレームの状態:")
-        print("Columns:", result_df.columns.tolist())
-        print("データ型:")
-        print(result_df.dtypes)
-        print("\nサンプルデータ:")
-        print(result_df.head())
-        
-        return result_df
+            print(f"データ処理中にエラーが発生: {str(e)}")
+            return pd.DataFrame()
 
     @staticmethod
     def generate_excel(df):
@@ -170,18 +182,28 @@ class FileProcessor:
                                 print(f"Debug - houjin_name: {houjin_name}, insho_name: {insho_name}")
                                 
                                 # ヘッダー文字列の作成
-                                header_text = f"{str(houjin_name or '')} {str(insho_name or '')}"
-                                print(f"Debug - header_text: {header_text}")
+                                houjin_name = str(houjin_name).strip() if houjin_name else ''
+                                insho_name = str(insho_name).strip() if insho_name else ''
+                                header_text = ' '.join(filter(None, [houjin_name, insho_name]))
+                                
+                                print("Debug - 処理前の値:")
+                                print(f"houjin_name: '{houjin_name}'")
+                                print(f"insho_name: '{insho_name}'")
+                                print(f"header_text: '{header_text}'")
                                 
                                 # ヘッダーデータの作成
-                                header_data = pd.DataFrame([
+                                header_rows = [
                                     ['不良在庫引き取り依頼'],
                                     [''],
-                                    [header_text.strip(), '', '御中'],
+                                    [header_text, '', '御中'] if header_text else ['', '', '御中'],
                                     [''],
                                     ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                                     ['']
-                                ])
+                                ]
+                                header_data = pd.DataFrame(header_rows)
+                                
+                                print("Debug - ヘッダーデータ:")
+                                print(header_data)
                                 
                                 # ヘッダーとデータを書き込み
                                 header_data.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
