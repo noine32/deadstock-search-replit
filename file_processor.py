@@ -182,20 +182,27 @@ class FileProcessor:
                                 print(f"Debug - houjin_name: {houjin_name}, insho_name: {insho_name}")
                                 
                                 # ヘッダー文字列の作成
-                                houjin_name = str(houjin_name).strip() if houjin_name else ''
-                                insho_name = str(insho_name).strip() if insho_name else ''
-                                header_text = ' '.join(filter(None, [houjin_name, insho_name]))
+                                houjin_name = str(sheet_df['法人名'].iloc[0]).strip() if not pd.isna(sheet_df['法人名'].iloc[0]) else ''
+                                insho_name = str(sheet_df['院所名'].iloc[0]).strip() if not pd.isna(sheet_df['院所名'].iloc[0]) else ''
+                                
+                                # 法人名と院所名を組み合わせてヘッダーテキストを作成
+                                header_parts = []
+                                if houjin_name:
+                                    header_parts.append(houjin_name)
+                                if insho_name:
+                                    header_parts.append(insho_name)
+                                header_text = ' '.join(header_parts)
                                 
                                 print("Debug - 処理前の値:")
-                                print(f"houjin_name: '{houjin_name}'")
-                                print(f"insho_name: '{insho_name}'")
-                                print(f"header_text: '{header_text}'")
+                                print("houjin_name: '{}'".format(houjin_name))
+                                print("insho_name: '{}'".format(insho_name))
+                                print("header_text: '{}'".format(header_text))
                                 
                                 # ヘッダーデータの作成
                                 header_rows = [
                                     ['不良在庫引き取り依頼'],
                                     [''],
-                                    [header_text, '', '御中'] if header_text else ['', '', '御中'],
+                                    [header_text, '', '御中'],
                                     [''],
                                     ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                                     ['']
