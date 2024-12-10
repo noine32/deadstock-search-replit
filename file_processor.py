@@ -155,7 +155,7 @@ class FileProcessor:
                         header_data = [
                             ['不良在庫引き取り依頼'],
                             [''],
-                            [f'{houjin_str.strip()} {insho_str.strip()} 御中'],
+                            [f'{houjin_str.strip()} {insho_str.strip()}', '', '御中'],
                             [''],
                             ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                             ['']
@@ -184,8 +184,12 @@ class FileProcessor:
                         cell_a1 = worksheet['A1']
                         cell_a1.font = cell_a1.font.copy(size=16)
                         
+                        # A3セルとC3セルのフォント設定（法人名・院所名と御中）
                         cell_a3 = worksheet['A3']
-                        cell_a3.font = cell_a3.font.copy(size=14, bold=True)
+                        cell_c3 = worksheet['C3']
+                        font_style = cell_a3.font.copy(size=14, bold=True)
+                        cell_a3.font = font_style
+                        cell_c3.font = font_style
         
         excel_buffer.seek(0)
         return excel_buffer
