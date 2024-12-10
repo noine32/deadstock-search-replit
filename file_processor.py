@@ -35,12 +35,12 @@ class FileProcessor:
 
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
-        # 在庫金額CSVから薬品名とＹＪコード、単位のマッピングを作成
-        yj_mapping = yj_code_df.set_index('薬品名')[['ＹＪコード', '単位']].to_dict('index')
+        # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
+        yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
         
         # 不良在庫データに対してＹＪコードと単位を設定
-        inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, {}).get('ＹＪコード'))
-        inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, {}).get('単位'))
+        inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[0])
+        inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
         
         # OMEC他院所データ（購入履歴）との結合
         # ＹＪコードと厚労省CDで紐付け
