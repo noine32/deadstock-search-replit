@@ -38,6 +38,11 @@ class FileProcessor:
         # 空の薬品名を持つ行を削除
         inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')]
         
+        # 数値データを文字列に変換し、NaN値を処理
+        for df in [inventory_df, purchase_history_df, yj_code_df]:
+            for col in df.columns:
+                df[col] = df[col].fillna('').astype(str)
+        
         # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
         yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
         
@@ -67,6 +72,9 @@ class FileProcessor:
             '法人名',
             '院所名'
         ]].copy()
+        
+        # 空の値を空文字列に変換
+        result_df = result_df.fillna('')
         
         # 院所名でソート
         result_df = result_df.sort_values(['法人名', '院所名'])
