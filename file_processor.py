@@ -35,30 +35,62 @@ class FileProcessor:
 
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
+        print("処理開始: データフレームの初期状態")
+        print(f"Inventory shape: {inventory_df.shape}")
+        print(f"Purchase history shape: {purchase_history_df.shape}")
+        print(f"YJ code shape: {yj_code_df.shape}")
+        
         # 空の薬品名を持つ行を削除
         inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')].copy()
+        print("空の薬品名を削除後の inventory shape:", inventory_df.shape)
         
-        # 数値データを文字列に変換し、NaN値を処理
-        for df in [inventory_df, purchase_history_df, yj_code_df]:
+        # データフレームの型チェックとNaN値の処理
+        for df_name, df in {"inventory": inventory_df, "purchase_history": purchase_history_df, "yj_code": yj_code_df}.items():
+            if not isinstance(df, pd.DataFrame):
+                print(f"Warning: {df_name} is not a DataFrame")
+                continue
             for col in df.columns:
-                if isinstance(df, pd.DataFrame):
-                    df[col] = df[col].fillna('').astype(str)
+                df[col] = df[col].fillna('').astype(str)
         
         # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
-        yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
+        if not yj_code_df.empty:
+            yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
+        else:
+            print("Warning: YJ code DataFrame is empty")
+            yj_mapping = {}
         
         # 不良在庫データに対してＹＪコードと単位を設定
         inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[0])
         inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
         
+        # マージ前の状態を確認
+        print("\nマージ前のデータ確認:")
+        print("Inventory columns:", inventory_df.columns.tolist())
+        print("Purchase history columns:", purchase_history_df.columns.tolist())
+        
+        # 必要なカラムが存在することを確認
+        required_columns = ['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']
+        missing_columns = [col for col in required_columns if col not in purchase_history_df.columns]
+        
+        if missing_columns:
+            print(f"Warning: Missing columns in purchase_history_df: {missing_columns}")
+            # 不足しているカラムを空の文字列で追加
+            for col in missing_columns:
+                purchase_history_df[col] = ''
+        
         # ＹＪコードと厚労省CDで紐付け
-        merged_df = pd.merge(
-            inventory_df,
-            purchase_history_df[['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']],
-            left_on='ＹＪコード',
-            right_on='厚労省CD',
-            how='left'
-        )
+        try:
+            merged_df = pd.merge(
+                inventory_df,
+                purchase_history_df[required_columns],
+                left_on='ＹＪコード',
+                right_on='厚労省CD',
+                how='left'
+            )
+            print("マージ後のデータ形状:", merged_df.shape)
+        except Exception as e:
+            print(f"マージ中にエラーが発生: {str(e)}")
+            return pd.DataFrame()  # エラーが発生した場合は空のデータフレームを返す
         
         # 院所名別にデータを整理
         # 必要なカラムのみを選択
