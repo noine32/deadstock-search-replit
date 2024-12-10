@@ -36,12 +36,13 @@ class FileProcessor:
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
         # 空の薬品名を持つ行を削除
-        inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')]
+        inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')].copy()
         
         # 数値データを文字列に変換し、NaN値を処理
         for df in [inventory_df, purchase_history_df, yj_code_df]:
             for col in df.columns:
-                df[col] = df[col].fillna('').astype(str)
+                if isinstance(df, pd.DataFrame):
+                    df[col] = df[col].fillna('').astype(str)
         
         # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
         yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
@@ -74,6 +75,9 @@ class FileProcessor:
         
         # 空の値を空文字列に変換
         result_df = result_df.fillna('')
+        
+        # 空の品名・規格を持つ行を削除
+        result_df = result_df[result_df['品名・規格'].notna() & (result_df['品名・規格'] != '')].copy()
         
         # 院所名でソート
         result_df = result_df.sort_values(['法人名', '院所名'])
@@ -117,7 +121,7 @@ class FileProcessor:
                         header_data = [
                             ['不良在庫引き取り依頼'],
                             [''],
-                            ['%s %s 御中' % (str(houjin_name or '').strip(), str(insho_name or '').strip())],
+                            [' '.join([str(houjin_name or '').strip(), str(insho_name or '').strip(), '御中'])],
                             [''],
                             ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                             ['']
