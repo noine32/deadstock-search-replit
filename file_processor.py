@@ -35,6 +35,9 @@ class FileProcessor:
 
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
+        # 空の薬品名を持つ行を削除
+        inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')]
+        
         # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
         yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
         
@@ -46,7 +49,7 @@ class FileProcessor:
         # ＹＪコードと厚労省CDで紐付け
         merged_df = pd.merge(
             inventory_df,
-            purchase_history_df[['厚労省CD', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']],
+            purchase_history_df[['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']],
             left_on='ＹＪコード',
             right_on='厚労省CD',
             how='left'
@@ -61,20 +64,31 @@ class FileProcessor:
             '新薬品ｺｰﾄﾞ',
             '使用期限',
             'ロット番号',
+            '法人名',
             '院所名'
         ]].copy()
         
         # 院所名でソート
-        result_df = result_df.sort_values('院所名')
+        result_df = result_df.sort_values(['法人名', '院所名'])
         
         return result_df
 
     @staticmethod
-    def generate_csv(df):
-        csv_buffer = io.StringIO()
-        df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
-        # BOMを追加
-        return '\ufeff' + csv_buffer.getvalue()
+    def generate_excel(df):
+        excel_buffer = io.BytesIO()
+        
+        # ExcelWriterを使用して、院所名ごとにシートを作成
+        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+            # 全データを「全体」シートに出力
+            df.to_excel(writer, sheet_name='全体', index=False)
+            
+            # 院所名ごとにシートを作成
+            for name in df['院所名'].unique():
+                sheet_df = df[df['院所名'] == name]
+                sheet_df.to_excel(writer, sheet_name=name, index=False)
+        
+        excel_buffer.seek(0)
+        return excel_buffer
 
     @staticmethod
     def generate_pdf(df):

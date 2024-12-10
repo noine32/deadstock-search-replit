@@ -99,13 +99,13 @@ def main():
                     st.subheader("処理結果")
                     st.dataframe(result_df)
 
-                    # CSVダウンロードボタン
-                    csv = FileProcessor.generate_csv(result_df)
+                    # Excelダウンロードボタン
+                    excel = FileProcessor.generate_excel(result_df)
                     st.download_button(
-                        label="CSV形式でダウンロード",
-                        data=csv,
-                        file_name="processed_inventory.csv",
-                        mime="text/csv"
+                        label="Excel形式でダウンロード",
+                        data=excel,
+                        file_name="processed_inventory.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
                     # PDFダウンロードボタン
