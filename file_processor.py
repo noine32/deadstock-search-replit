@@ -83,8 +83,12 @@ class FileProcessor:
             for df_name, df in {"inventory": inventory_df, "purchase_history": purchase_history_df, "yj_code": yj_code_df}.items():
                 if not isinstance(df, pd.DataFrame):
                     print(f"Warning: {df_name} is not a DataFrame")
+                    print(f"Type of {df_name}: {type(df)}")
                     continue
+                print(f"\nProcessing {df_name} DataFrame:")
+                print(f"Columns: {df.columns.tolist()}")
                 for col in df.columns:
+                    print(f"Processing column: {col}")
                     df[col] = df[col].fillna('').astype(str)
             
             # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
@@ -119,6 +123,12 @@ class FileProcessor:
                 print("マージ前の状態:")
                 print("- Inventory df keys:", inventory_df['ＹＪコード'].head())
                 print("- Purchase history df keys:", purchase_history_df['厚労省CD'].head())
+                print("\nデータ型確認:")
+                print("- Inventory df['ＹＪコード'] type:", type(inventory_df['ＹＪコード']))
+                print("- Purchase history df['厚労省CD'] type:", type(purchase_history_df['厚労省CD']))
+                print("\nデータサンプル:")
+                print("- Inventory df sample:\n", inventory_df[['ＹＪコード', '薬品名']].head())
+                print("- Purchase history df sample:\n", purchase_history_df[['厚労省CD', '品名・規格']].head())
                 
                 merged_df = pd.merge(
                     inventory_df,
