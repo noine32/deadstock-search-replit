@@ -85,7 +85,7 @@ def main():
                 with st.spinner('データを処理中...'):
                     # ファイル読み込み
                     purchase_df = FileProcessor.read_excel(purchase_file)
-                    inventory_df = FileProcessor.read_csv(inventory_file)
+                    inventory_df = FileProcessor.read_csv(inventory_file, file_type='inventory')
                     yj_code_df = FileProcessor.read_csv(yj_code_file)
 
                     # データ処理

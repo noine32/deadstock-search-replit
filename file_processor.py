@@ -18,24 +18,30 @@ class FileProcessor:
             raise Exception(f"Excelファイルの読み込みエラー: {str(e)}")
 
     @staticmethod
-    def read_csv(file):
+    def read_csv(file, file_type='default'):
         try:
             file_bytes = file.getvalue()
             encoding = FileProcessor.detect_encoding(file_bytes)
-            df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding)
+            
+            if file_type == 'inventory':
+                # 不良在庫データの場合、最初の7行をスキップ
+                df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding, skiprows=7)
+            else:
+                df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding)
+            
             return df
         except Exception as e:
             raise Exception(f"CSVファイルの読み込みエラー: {str(e)}")
 
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
-        # YJコードマスターデータの準備
-        yj_master = yj_code_df.set_index('商品コード')['YJコード'].to_dict()
+        # 在庫金額CSVから商品名とYJコードのマッピングを作成
+        name_to_yj = yj_code_df.set_index('商品名')['YJコード'].to_dict()
         
-        # 購入履歴データの処理
-        purchase_history_df['YJコード'] = purchase_history_df['商品コード'].map(yj_master)
+        # 不良在庫データに対してYJコードを設定
+        inventory_df['YJコード'] = inventory_df['商品名'].map(name_to_yj)
         
-        # 不良在庫データとの結合
+        # 購入履歴データとの結合
         merged_df = pd.merge(
             inventory_df,
             purchase_history_df,
