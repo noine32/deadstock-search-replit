@@ -237,14 +237,17 @@ class FileProcessor:
                                 
                                 # ヘッダーデータの作成
                                 header_rows = [
-                                    ['不良在庫引き取り依頼'],
-                                    [''],
-                                    [f"{houjin_name} {insho_name}".strip(), '', '御中'],
-                                    [''],
-                                    ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
-                                    ['']
+                                    ['不良在庫引き取り依頼', None, None],
+                                    [None, None, None],
+                                    [f"{houjin_name} {insho_name}".strip(), None, '御中'],
+                                    [None, None, None],
+                                    ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。', None, None],
+                                    [None, None, None]
                                 ]
                                 header_data = pd.DataFrame(header_rows)
+                                
+                                print("Debug - ヘッダーデータ:")
+                                print(header_data)
                                 
                                 print("Debug - ヘッダーデータ:")
                                 print(header_data)
