@@ -50,7 +50,6 @@ class FileProcessor:
         inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[0])
         inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
         
-        # OMEC他院所データ（購入履歴）との結合
         # ＹＪコードと厚労省CDで紐付け
         merged_df = pd.merge(
             inventory_df,
@@ -109,16 +108,16 @@ class FileProcessor:
                         insho_name = sheet_df['院所名'].iloc[0]
                         
                         # 表示用のカラムから法人名と院所名を除外
-                        sheet_df = sheet_df.drop(['法人名', '院所名'], axis=1)
+                        display_df = sheet_df.drop(['法人名', '院所名'], axis=1)
                         
                         # ヘッダー情報を作成
                         header_data = [
                             ['不良在庫引き取り依頼'],
-                            [],
-                            [f'{houjin_name} {insho_name} 御中'],
-                            [],
+                            [''],
+                            [f'{str(houjin_name)} {str(insho_name)} 御中'],
+                            [''],
                             ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
-                            []
+                            ['']
                         ]
                         
                         # ヘッダー情報をDataFrameに変換
@@ -126,7 +125,7 @@ class FileProcessor:
                         
                         # ヘッダーとデータを書き込み
                         header_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
-                        sheet_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
+                        display_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
         
         excel_buffer.seek(0)
         return excel_buffer
