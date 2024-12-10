@@ -85,15 +85,28 @@ class FileProcessor:
     def generate_excel(df):
         excel_buffer = io.BytesIO()
         
+        # シート名として無効な文字を置換する関数
+        def clean_sheet_name(name):
+            if not isinstance(name, str) or not name.strip():
+                return 'Unknown'
+            # 特殊文字を置換
+            invalid_chars = ['/', '\\', '?', '*', ':', '[', ']']
+            cleaned_name = ''.join('_' if c in invalid_chars else c for c in name)
+            # 最大31文字に制限（Excelの制限）
+            return cleaned_name[:31].strip()
+        
         # ExcelWriterを使用して、院所名ごとにシートを作成
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
             # 全データを「全体」シートに出力
             df.to_excel(writer, sheet_name='全体', index=False)
             
-            # 院所名ごとにシートを作成
+            # 院所名ごとにシートを作成（空の値を除外）
             for name in df['院所名'].unique():
-                sheet_df = df[df['院所名'] == name]
-                sheet_df.to_excel(writer, sheet_name=name, index=False)
+                if pd.notna(name) and str(name).strip():  # 空の値をスキップ
+                    sheet_name = clean_sheet_name(str(name))
+                    sheet_df = df[df['院所名'] == name]
+                    if not sheet_df.empty:
+                        sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
         
         excel_buffer.seek(0)
         return excel_buffer
