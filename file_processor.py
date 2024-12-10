@@ -161,35 +161,40 @@ class FileProcessor:
                             ['']
                         ]
                         
-                        # ヘッダー情報をDataFrameに変換
-                        header_df = pd.DataFrame(header_data)
-                        
-                        # ヘッダーとデータを書き込み
-                        header_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
-                        display_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
-                        
-                        # シートを取得してフォーマットを設定
-                        worksheet = writer.sheets[sheet_name]
-                        
-                        # 列幅の設定
-                        worksheet.column_dimensions['A'].width = 35  # 255ピクセルは約35文字幅
-                        for col in ['B', 'C', 'D', 'E', 'F', 'G']:  # 追加した引取り可能数列も含む
-                            worksheet.column_dimensions[col].auto_fit = True
-                        
-                        # 行の高さを設定（30ピクセル）
-                        for row in range(1, worksheet.max_row + 1):
-                            worksheet.row_dimensions[row].height = 30
-                        
-                        # フォントサイズと太字の設定
-                        cell_a1 = worksheet['A1']
-                        cell_a1.font = cell_a1.font.copy(size=16)
-                        
-                        # A3セルとC3セルのフォント設定（法人名・院所名と御中）
-                        cell_a3 = worksheet['A3']
-                        cell_c3 = worksheet['C3']
-                        font_style = cell_a3.font.copy(size=14, bold=True)
-                        cell_a3.font = font_style
-                        cell_c3.font = font_style
+                        try:
+                            # ヘッダー情報をDataFrameに変換
+                            header_df = pd.DataFrame(header_data)
+                            
+                            # ヘッダーとデータを書き込み
+                            header_df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+                            display_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
+                            
+                            # シートを取得してフォーマットを設定
+                            worksheet = writer.sheets[sheet_name]
+                            
+                            # 列幅の設定
+                            worksheet.column_dimensions['A'].width = 35  # 255ピクセルは約35文字幅
+                            for col in ['B', 'C', 'D', 'E', 'F', 'G']:  # 追加した引取り可能数列も含む
+                                worksheet.column_dimensions[col].auto_fit = True
+                            
+                            # 行の高さを設定（30ピクセル）
+                            for row in range(1, worksheet.max_row + 1):
+                                worksheet.row_dimensions[row].height = 30
+                            
+                            # フォントサイズと太字の設定
+                            cell_a1 = worksheet['A1']
+                            cell_a1.font = cell_a1.font.copy(size=16)
+                            
+                            # A3セルとC3セルのフォント設定（法人名・院所名と御中）
+                            cell_a3 = worksheet['A3']
+                            cell_c3 = worksheet['C3']
+                            font_style = cell_a3.font.copy(size=14, bold=True)
+                            cell_a3.font = font_style
+                            cell_c3.font = font_style
+                            
+                        except Exception as e:
+                            print(f"シート '{sheet_name}' の処理中にエラーが発生: {str(e)}")
+                            continue
         
         excel_buffer.seek(0)
         return excel_buffer
