@@ -40,6 +40,12 @@ class FileProcessor:
         print(f"Purchase history shape: {purchase_history_df.shape}")
         print(f"YJ code shape: {yj_code_df.shape}")
         
+        # データフレームの内容を確認
+        print("\nInventory columns:")
+        for col in inventory_df.columns:
+            print(f"Column: {col}, Type: {inventory_df[col].dtype}")
+            print("Sample values:", inventory_df[col].head())
+        
         # 空の薬品名を持つ行を削除
         inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')].copy()
         print("空の薬品名を削除後の inventory shape:", inventory_df.shape)
@@ -113,6 +119,14 @@ class FileProcessor:
         
         # 院所名でソート
         result_df = result_df.sort_values(['法人名', '院所名'])
+        
+        # 結果のデータフレームの内容を確認
+        print("\n最終的なデータフレームの状態:")
+        print("Columns:", result_df.columns.tolist())
+        print("データ型:")
+        print(result_df.dtypes)
+        print("\nサンプルデータ:")
+        print(result_df.head())
         
         return result_df
 
