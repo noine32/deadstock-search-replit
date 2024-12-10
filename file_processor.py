@@ -117,7 +117,7 @@ class FileProcessor:
                         header_data = [
                             ['不良在庫引き取り依頼'],
                             [''],
-                            ['{} {} 御中'.format(str(houjin_name).strip(), str(insho_name).strip())],
+                            ['%s %s 御中' % (str(houjin_name or '').strip(), str(insho_name or '').strip())],
                             [''],
                             ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                             ['']
