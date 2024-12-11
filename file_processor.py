@@ -35,85 +35,115 @@ class FileProcessor:
 
     @staticmethod
     def process_data(purchase_df, inventory_df, yj_code_df):
-        print("処理開始: データフレームの初期状態")
-        print(f"Inventory shape: {inventory_df.shape}")
-        print(f"Purchase history shape: {purchase_df.shape}")
-        print(f"YJ code shape: {yj_code_df.shape}")
+        """
+        不良在庫データを処理し、分析結果を含むDataFrameを返す
         
-        # 空の薬品名を持つ行を削除
-        inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')].copy()
-        print("空の薬品名を削除後の inventory shape:", inventory_df.shape)
+        Parameters:
+        -----------
+        purchase_df : pandas.DataFrame
+            OMEC他院所データ
+        inventory_df : pandas.DataFrame
+            不良在庫データ
+        yj_code_df : pandas.DataFrame
+            在庫金額データ（YJコードマスタ）
         
-        # データフレームの型チェックとNaN値の処理
-        for df_name, df in {"inventory": inventory_df, "purchase_history": purchase_df, "yj_code": yj_code_df}.items():
-            if not isinstance(df, pd.DataFrame):
-                print(f"Warning: {df_name} is not a DataFrame")
-                continue
-            for col in df.columns:
-                df[col] = df[col].fillna('').astype(str)
-        
-        # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
-        if not yj_code_df.empty:
-            yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
-        else:
-            print("Warning: YJ code DataFrame is empty")
-            yj_mapping = {}
-        
-        # 不良在庫データに対してＹＪコードと単位を設定
-        inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[0])
-        inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
-        
-        # マージ前の状態を確認
-        print("\nマージ前のデータ確認:")
-        print("Inventory columns:", inventory_df.columns.tolist())
-        print("Purchase history columns:", purchase_df.columns.tolist())
-        
-        # 必要なカラムが存在することを確認
-        required_columns = ['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']
-        missing_columns = [col for col in required_columns if col not in purchase_df.columns]
-        
-        if missing_columns:
-            print(f"Warning: Missing columns in purchase_history_df: {missing_columns}")
-            # 不足しているカラムを空の文字列で追加
-            for col in missing_columns:
-                purchase_df[col] = ''
-        
-        # ＹＪコードと厚労省CDで紐付け
+        Returns:
+        --------
+        pandas.DataFrame
+            処理済みの不良在庫データ
+        """
         try:
+            # データフレームの存在チェック
+            if any(df.empty for df in [purchase_df, inventory_df, yj_code_df]):
+                raise ValueError("空のデータフレームが含まれています")
+
+            # カラム名の存在チェック
+            required_columns = {
+                'inventory': ['薬品名', '在庫量', '使用期限', 'ロット番号'],
+                'purchase': ['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ'],
+                'yj_code': ['薬品名', 'ＹＪコード', '単位']
+            }
+            
+            for df_name, cols in required_columns.items():
+                df = {'inventory': inventory_df, 'purchase': purchase_df, 'yj_code': yj_code_df}[df_name]
+                missing = [col for col in cols if col not in df.columns]
+                if missing:
+                    raise ValueError(f"{df_name}データに必要なカラムがありません: {', '.join(missing)}")
+
+            # データの前処理
+            inventory_df = inventory_df.copy()
+            purchase_df = purchase_df.copy()
+            yj_code_df = yj_code_df.copy()
+
+            # 日付データの処理
+            inventory_df['使用期限'] = pd.to_datetime(inventory_df['使用期限'], errors='coerce')
+            
+            # 有効期限切れまでの日数を計算
+            inventory_df['有効期限切れまでの日数'] = (inventory_df['使用期限'] - pd.Timestamp.now()).dt.days
+            
+            # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
+            yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
+            
+            # 不良在庫データにＹＪコードと単位を設定
+            inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[0])
+            inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
+            
+            # 不良在庫の判定（有効期限が6ヶ月以内）
+            inventory_df['不良在庫'] = inventory_df['有効期限切れまでの日数'] <= 180
+            
+            # データのマージ
             merged_df = pd.merge(
                 inventory_df,
-                purchase_df[required_columns],
+                purchase_df[required_columns['purchase']],
                 left_on='ＹＪコード',
                 right_on='厚労省CD',
                 how='left'
             )
-            print("マージ後のデータ形状:", merged_df.shape)
+            
+            # 結果データフレームの作成
+            result_columns = [
+                '品名・規格',
+                '在庫量',
+                '単位',
+                '新薬品ｺｰﾄﾞ',
+                '使用期限',
+                'ロット番号',
+                '法人名',
+                '院所名',
+                '有効期限切れまでの日数',
+                '不良在庫'
+            ]
+            
+            result_df = merged_df[result_columns].copy()
+            
+            # 日付フォーマットの設定
+            result_df['使用期限'] = result_df['使用期限'].dt.strftime('%Y-%m-%d')
+            
+            # 数値データの処理
+            result_df['在庫量'] = pd.to_numeric(result_df['在庫量'], errors='coerce').fillna(0)
+            result_df['有効期限切れまでの日数'] = result_df['有効期限切れまでの日数'].fillna(0).astype(int)
+            
+            # 欠損値の処理
+            result_df = result_df.fillna({
+                '品名・規格': '',
+                '単位': '',
+                '新薬品ｺｰﾄﾞ': '',
+                'ロット番号': '',
+                '法人名': '',
+                '院所名': ''
+            })
+            
+            # データのソート
+            result_df = result_df.sort_values(
+                ['不良在庫', '有効期限切れまでの日数', '法人名', '院所名'],
+                ascending=[False, True, True, True]
+            )
+            
+            return result_df
+            
         except Exception as e:
-            print(f"マージ中にエラーが発生: {str(e)}")
-            return pd.DataFrame()
-        
-        # 院所名別にデータを整理
-        result_df = merged_df[[
-            '品名・規格',
-            '在庫量',
-            '単位',
-            '新薬品ｺｰﾄﾞ',
-            '使用期限',
-            'ロット番号',
-            '法人名',
-            '院所名'
-        ]].copy()
-        
-        # 空の値を空文字列に変換
-        result_df = result_df.fillna('')
-        
-        # 空の品名・規格を持つ行を削除
-        result_df = result_df[result_df['品名・規格'].notna() & (result_df['品名・規格'] != '')].copy()
-        
-        # 院所名でソート
-        result_df = result_df.sort_values(['法人名', '院所名'])
-        
-        return result_df
+            print(f"データ処理中にエラーが発生しました: {str(e)}")
+            raise
 
     @staticmethod
     def generate_excel(df):
