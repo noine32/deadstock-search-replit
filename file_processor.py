@@ -134,36 +134,50 @@ class FileProcessor:
             # 無効な文字を置換
             invalid_chars = ['/', '\\', '?', '*', ':', '[', ']']
             cleaned_name = ''.join('_' if c in invalid_chars else c for c in name)
+            logger.debug(f"無効な文字を置換後のシート名: '{cleaned_name}'")
+            
+            # 英数字以外の文字をアンダースコアに置換
+            import re
+            cleaned_name = re.sub(r'[^\w\s-]', '_', cleaned_name)
+            logger.debug(f"英数字以外の文字を置換後のシート名: '{cleaned_name}'")
             
             # 長さを制限（Excel制限: 31文字）
             final_name = cleaned_name[:31].strip()
+            logger.debug(f"長さ制限後のシート名: '{final_name}'")
             
-            logger.debug(f"クリーニング後のシート名: '{final_name}'")
+            if not final_name:
+                logger.warning("クリーニング後のシート名が空になりました")
+                return 'Unknown'
+            
+            logger.debug(f"最終的なシート名: '{final_name}'")
             return final_name
             
         except Exception as e:
             logger.error(f"シート名クリーニングエラー: {str(e)}")
+            logger.error(f"エラーの種類: {type(e).__name__}")
             logger.error(traceback.format_exc())
             return 'Unknown'
 
     @staticmethod
     def generate_excel(df):
         """Excelファイルを生成し、バイトストリームとして返す"""
-        logger.debug("\n=== Excel生成開始 ===")
-        
-        if df is None or df.empty:
-            logger.error("空のデータフレームが渡されました")
-            return None
-        
         try:
+            logger.debug("\n=== Excel生成開始 ===")
+            
+            if df is None or df.empty:
+                logger.error("空のデータフレームが渡されました")
+                return None
+
             logger.debug("入力データフレーム情報:")
             logger.debug(f"行数: {df.shape[0]}")
             logger.debug(f"カラム: {df.columns.tolist()}")
             logger.debug(f"データ型: {df.dtypes}")
             logger.debug(f"データの最初の数行:\n{df.head()}")
+            logger.debug("メモリ使用量: {:.2f} MB".format(df.memory_usage(deep=True).sum() / 1024 / 1024))
 
             excel_buffer = io.BytesIO()
             required_columns = ['院所名', '法人名', '品名・規格', '在庫量', '単位', '新薬品コード', '使用期限', 'ロット番号', '引取り可能数']
+            logger.debug(f"必要なカラム: {required_columns}")
             
             # カラムの存在確認とデータ型の検証
             logger.debug("必要なカラムの確認を開始")
@@ -187,8 +201,6 @@ class FileProcessor:
                 logger.debug("ExcelWriterの初期化完了")
                 unique_names = df['院所名'].unique()
                 logger.debug(f"\n処理対象院所数: {len(unique_names)}")
-
-                logger.debug(f"処理対象院所数: {len(unique_names)}")
                 
                 for name in unique_names:
                     try:

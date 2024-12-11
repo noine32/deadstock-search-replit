@@ -11,10 +11,12 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('app.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )
+logging.getLogger().setLevel(logging.DEBUG)
+st.set_option('server.enableCORS', False)
+st.set_option('server.enableXsrfProtection', False)
 logger = logging.getLogger(__name__)
 
 # 起動時のデバッグ情報
@@ -98,55 +100,106 @@ def main():
 
         if purchase_file and inventory_file and yj_code_file:
             try:
-                logger.info("=== データ処理開始 ===")
-                logger.debug(f"購入履歴ファイル: {purchase_file.name if purchase_file else 'None'}")
-                logger.debug(f"在庫データファイル: {inventory_file.name if inventory_file else 'None'}")
-                logger.debug(f"YJコードファイル: {yj_code_file.name if yj_code_file else 'None'}")
+                logger.info("\n=== データ処理開始 ===")
+                logger.info("ファイル情報:")
+                logger.info(f"購入履歴ファイル: {purchase_file.name if purchase_file else 'None'}")
+                logger.info(f"在庫データファイル: {inventory_file.name if inventory_file else 'None'}")
+                logger.info(f"YJコードファイル: {yj_code_file.name if yj_code_file else 'None'}")
                 
                 with st.spinner('データを処理中...'):
-                    logger.info("ファイル処理を開始します")
+                    logger.info("\nファイル処理を開始します")
                     
-                    # ファイル読み込み
-                    logger.debug("購入履歴ファイルを読み込みます")
-                    purchase_df = FileProcessor.read_excel(purchase_file)
-                    logger.debug(f"購入履歴データ: {purchase_df.shape} 行, カラム: {purchase_df.columns.tolist()}")
-                    
-                    logger.debug("在庫データファイルを読み込みます")
-                    inventory_df = FileProcessor.read_csv(inventory_file, file_type='inventory')
-                    logger.debug(f"在庫データ: {inventory_df.shape} 行, カラム: {inventory_df.columns.tolist()}")
-                    
-                    logger.debug("YJコードファイルを読み込みます")
-                    yj_code_df = FileProcessor.read_csv(yj_code_file)
-                    logger.debug(f"YJコードデータ: {yj_code_df.shape} 行, カラム: {yj_code_df.columns.tolist()}")
+                    try:
+                        # 購入履歴ファイルの読み込み
+                        logger.info("\n1. 購入履歴ファイルを読み込みます")
+                        purchase_df = FileProcessor.read_excel(purchase_file)
+                        logger.info(f"購入履歴データ情報:")
+                        logger.info(f"- 行数: {purchase_df.shape[0]}")
+                        logger.info(f"- カラム: {purchase_df.columns.tolist()}")
+                        logger.info(f"- データ型:\n{purchase_df.dtypes}")
+                        logger.info(f"- 最初の数行:\n{purchase_df.head()}")
+                    except Exception as e:
+                        logger.error("購入履歴ファイルの読み込みでエラーが発生しました")
+                        logger.error(f"エラー種類: {type(e).__name__}")
+                        logger.error(f"エラー内容: {str(e)}")
+                        raise
+
+                    try:
+                        # 在庫データファイルの読み込み
+                        logger.info("\n2. 在庫データファイルを読み込みます")
+                        inventory_df = FileProcessor.read_csv(inventory_file, file_type='inventory')
+                        logger.info(f"在庫データ情報:")
+                        logger.info(f"- 行数: {inventory_df.shape[0]}")
+                        logger.info(f"- カラム: {inventory_df.columns.tolist()}")
+                        logger.info(f"- データ型:\n{inventory_df.dtypes}")
+                        logger.info(f"- 最初の数行:\n{inventory_df.head()}")
+                    except Exception as e:
+                        logger.error("在庫データファイルの読み込みでエラーが発生しました")
+                        logger.error(f"エラー種類: {type(e).__name__}")
+                        logger.error(f"エラー内容: {str(e)}")
+                        raise
+
+                    try:
+                        # YJコードファイルの読み込み
+                        logger.info("\n3. YJコードファイルを読み込みます")
+                        yj_code_df = FileProcessor.read_csv(yj_code_file)
+                        logger.info(f"YJコードデータ情報:")
+                        logger.info(f"- 行数: {yj_code_df.shape[0]}")
+                        logger.info(f"- カラム: {yj_code_df.columns.tolist()}")
+                        logger.info(f"- データ型:\n{yj_code_df.dtypes}")
+                        logger.info(f"- 最初の数行:\n{yj_code_df.head()}")
+                    except Exception as e:
+                        logger.error("YJコードファイルの読み込みでエラーが発生しました")
+                        logger.error(f"エラー種類: {type(e).__name__}")
+                        logger.error(f"エラー内容: {str(e)}")
+                        raise
 
                     # データ処理
-                    logger.info("データ処理を開始します")
-                    result_df = FileProcessor.process_data(
-                        purchase_df,
-                        inventory_df,
-                        yj_code_df
-                    )
-                    logger.debug(f"処理結果: {result_df.shape} 行, カラム: {result_df.columns.tolist()}")
+                    logger.info("\n4. データ処理を開始します")
+                    try:
+                        result_df = FileProcessor.process_data(
+                            purchase_df,
+                            inventory_df,
+                            yj_code_df
+                        )
+                        logger.info("データ処理が完了しました")
+                        logger.info(f"処理結果情報:")
+                        logger.info(f"- 行数: {result_df.shape[0]}")
+                        logger.info(f"- カラム: {result_df.columns.tolist()}")
+                        logger.info(f"- データ型:\n{result_df.dtypes}")
+                        logger.info(f"- 最初の数行:\n{result_df.head()}")
+                    except Exception as e:
+                        logger.error("データ処理でエラーが発生しました")
+                        logger.error(f"エラー種類: {type(e).__name__}")
+                        logger.error(f"エラー内容: {str(e)}")
+                        raise
 
                     # 結果の表示
                     st.subheader("処理結果")
                     st.dataframe(result_df)
 
                     # Excelファイル生成
-                    logger.info("Excelファイルを生成します")
-                    excel = FileProcessor.generate_excel(result_df)
-                    
-                    if excel is not None:
-                        logger.debug("Excelファイルの生成が完了しました")
-                        st.download_button(
-                            label="Excel形式でダウンロード",
-                            data=excel,
-                            file_name="processed_inventory.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                    else:
-                        logger.error("Excelファイルの生成に失敗しました")
-                        st.error("Excelファイルの生成に失敗しました")
+                    logger.info("\n5. Excelファイルを生成します")
+                    try:
+                        excel = FileProcessor.generate_excel(result_df)
+                        
+                        if excel is not None:
+                            logger.info("Excelファイルの生成が完了しました")
+                            st.download_button(
+                                label="Excel形式でダウンロード",
+                                data=excel,
+                                file_name="processed_inventory.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                        else:
+                            error_msg = "Excelファイルの生成に失敗しました"
+                            logger.error(error_msg)
+                            st.error(error_msg)
+                    except Exception as e:
+                        logger.error("Excelファイル生成でエラーが発生しました")
+                        logger.error(f"エラー種類: {type(e).__name__}")
+                        logger.error(f"エラー内容: {str(e)}")
+                        st.error(f"Excelファイルの生成中にエラーが発生しました: {str(e)}")
 
                     
 
