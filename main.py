@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 from auth import Auth
 from file_processor import FileProcessor
 from database import Database
@@ -101,10 +102,14 @@ def main():
 
                     # Excelダウンロードボタン
                     excel = FileProcessor.generate_excel(result_df)
+                    # 現在の日付を取得してファイル名を生成
+                    current_date = datetime.now().strftime('%Y%m%d')
+                    excel_filename = f"不良在庫_法人別_{current_date}.xlsx"
+                    
                     st.download_button(
                         label="Excel形式でダウンロード",
                         data=excel,
-                        file_name="processed_inventory.xlsx",
+                        file_name=excel_filename,
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
