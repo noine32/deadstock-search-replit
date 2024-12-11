@@ -2,6 +2,7 @@ import pandas as pd
 import chardet
 import io
 from datetime import datetime
+from openpyxl.styles import Border, Side
 
 class FileProcessor:
     @staticmethod
@@ -154,10 +155,38 @@ class FileProcessor:
                         # シートを取得してフォーマットを設定
                         worksheet = writer.sheets[sheet_name]
                         
+                        from openpyxl.styles import Border, Side
                         # 列幅の設定
                         worksheet.column_dimensions['A'].width = 35  # 255ピクセルは約35文字幅
-                        for col in ['B', 'C', 'D', 'E', 'F', 'G']:  # 追加した引取り可能数列も含む
-                            worksheet.column_dimensions[col].auto_fit = True
+                        
+                        # データの開始行（ヘッダーの後）
+                        data_start_row = 7
+                        
+                        # B～G列の幅を自動調整
+                        for col in ['B', 'C', 'D', 'E', 'F', 'G']:
+                            max_length = 0
+                            column = worksheet[col]
+                            for cell in column[data_start_row:]:
+                                try:
+                                    if len(str(cell.value)) > max_length:
+                                        max_length = len(str(cell.value))
+                                except:
+                                    pass
+                            adjusted_width = (max_length + 2)
+                            worksheet.column_dimensions[col].width = adjusted_width
+                        
+                        # 罫線スタイルの定義
+                        thin_border = Border(
+                            left=Side(style='thin'),
+                            right=Side(style='thin'),
+                            top=Side(style='thin'),
+                            bottom=Side(style='thin')
+                        )
+                        
+                        # データ部分に罫線を追加
+                        for row in worksheet.iter_rows(min_row=data_start_row):
+                            for cell in row:
+                                cell.border = thin_border
                         
                         # 行の高さを設定（30ピクセル）
                         for row in range(1, worksheet.max_row + 1):
