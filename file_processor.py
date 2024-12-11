@@ -162,18 +162,9 @@ class FileProcessor:
                         # データの開始行（ヘッダーの後）
                         data_start_row = 7
                         
-                        # B～G列の幅を自動調整
+                        # B～G列の幅を125ピクセル（約17文字幅）に設定
                         for col in ['B', 'C', 'D', 'E', 'F', 'G']:
-                            max_length = 0
-                            column = worksheet[col]
-                            for cell in column[data_start_row:]:
-                                try:
-                                    if len(str(cell.value)) > max_length:
-                                        max_length = len(str(cell.value))
-                                except:
-                                    pass
-                            adjusted_width = (max_length + 2)
-                            worksheet.column_dimensions[col].width = adjusted_width
+                            worksheet.column_dimensions[col].width = 17
                         
                         # 罫線スタイルの定義
                         thin_border = Border(
