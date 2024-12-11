@@ -196,6 +196,13 @@ class FileProcessor:
                         
                         cell_a3 = worksheet['A3']
                         cell_a3.font = cell_a3.font.copy(size=14, bold=True)
+
+                        # 印刷設定
+                        worksheet.page_setup.orientation = worksheet.ORIENTATION_LANDSCAPE
+                        worksheet.print_title_rows = '1:7'  # 1-7行目をタイトル行として設定
+                        worksheet.page_setup.fitToPage = True
+                        worksheet.page_setup.fitToHeight = 0  # 高さは自動
+                        worksheet.page_setup.fitToWidth = 1  # 幅は1ページに収める
         
         excel_buffer.seek(0)
         return excel_buffer
