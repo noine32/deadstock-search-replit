@@ -163,7 +163,14 @@ class FileProcessor:
                         for row in range(1, worksheet.max_row + 1):
                             worksheet.row_dimensions[row].height = 30
                         
-                        # フォントサイズと太字の設定
+                        # すべてのセルのフォントサイズを14に設定
+                        for row in worksheet.iter_rows():
+                            for cell in row:
+                                if cell.font is None:
+                                    cell.font = cell.font.copy()
+                                cell.font = cell.font.copy(size=14)
+                        
+                        # 特定のセルのフォント設定を上書き
                         cell_a1 = worksheet['A1']
                         cell_a1.font = cell_a1.font.copy(size=16)
                         
