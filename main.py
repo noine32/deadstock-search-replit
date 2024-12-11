@@ -1,7 +1,8 @@
+import os
+import sys
+import logging
 import streamlit as st
 import pandas as pd
-import logging
-import sys
 from auth import Auth
 from file_processor import FileProcessor
 from database import Database
@@ -25,11 +26,11 @@ logger.debug(f"環境変数: PGDATABASE={os.environ.get('PGDATABASE', 'Not set')
 logger.debug(f"環境変数: PGUSER={os.environ.get('PGUSER', 'Not set')}")
 
 # Streamlit設定
-st.set_option('server.maxUploadSize', 200)
-st.set_option('server.enableCORS', False)
-st.set_option('server.enableXsrfProtection', False)
-st.set_option('server.address', '0.0.0.0')
-st.set_option('server.port', 8501)
+st.set_page_config(
+    page_title="医薬品不良在庫管理システム",
+    page_icon="💊",
+    layout="wide"
+)
 
 # 起動時のデバッグ情報
 logger.info("アプリケーション起動")

@@ -28,15 +28,19 @@ class Database:
                     print(f"User: {os.environ.get('PGUSER', 'Not set')}")
                     print("===========================\n")
                     
-                    self.conn = psycopg2.connect(
-                        dbname=os.environ['PGDATABASE'],
-                        user=os.environ['PGUSER'],
-                        password=os.environ['PGPASSWORD'],
-                        host=os.environ['PGHOST'],
-                        port=os.environ['PGPORT'],
-                        connect_timeout=10
-                    )
-                    self.conn.autocommit = False
+                    connection_params = {
+                        'dbname': os.environ['PGDATABASE'],
+                        'user': os.environ['PGUSER'],
+                        'password': os.environ['PGPASSWORD'],
+                        'host': os.environ['PGHOST'],
+                        'port': os.environ['PGPORT'],
+                        'connect_timeout': 30,
+                        'application_name': 'PharmaInventoryManager'
+                    }
+                    
+                    print("接続パラメータ:", connection_params)
+                    self.conn = psycopg2.connect(**connection_params)
+                    self.conn.autocommit = True  # 自動コミットを有効化
                     print("データベース接続に成功しました")
                     return
                 return
@@ -50,7 +54,7 @@ class Database:
                 retry_count += 1
                 if retry_count < max_retries:
                     import time
-                    time.sleep(2)  # 再試行前に2秒待機
+                    time.sleep(5)  # 再試行前に5秒待機
                 else:
                     raise
 
