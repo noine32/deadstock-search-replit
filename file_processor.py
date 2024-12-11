@@ -34,10 +34,10 @@ class FileProcessor:
             raise Exception(f"CSVファイルの読み込みエラー: {str(e)}")
 
     @staticmethod
-    def process_data(purchase_history_df, inventory_df, yj_code_df):
+    def process_data(purchase_df, inventory_df, yj_code_df):
         print("処理開始: データフレームの初期状態")
         print(f"Inventory shape: {inventory_df.shape}")
-        print(f"Purchase history shape: {purchase_history_df.shape}")
+        print(f"Purchase history shape: {purchase_df.shape}")
         print(f"YJ code shape: {yj_code_df.shape}")
         
         # 空の薬品名を持つ行を削除
@@ -45,7 +45,7 @@ class FileProcessor:
         print("空の薬品名を削除後の inventory shape:", inventory_df.shape)
         
         # データフレームの型チェックとNaN値の処理
-        for df_name, df in {"inventory": inventory_df, "purchase_history": purchase_history_df, "yj_code": yj_code_df}.items():
+        for df_name, df in {"inventory": inventory_df, "purchase_history": purchase_df, "yj_code": yj_code_df}.items():
             if not isinstance(df, pd.DataFrame):
                 print(f"Warning: {df_name} is not a DataFrame")
                 continue
@@ -66,23 +66,23 @@ class FileProcessor:
         # マージ前の状態を確認
         print("\nマージ前のデータ確認:")
         print("Inventory columns:", inventory_df.columns.tolist())
-        print("Purchase history columns:", purchase_history_df.columns.tolist())
+        print("Purchase history columns:", purchase_df.columns.tolist())
         
         # 必要なカラムが存在することを確認
         required_columns = ['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']
-        missing_columns = [col for col in required_columns if col not in purchase_history_df.columns]
+        missing_columns = [col for col in required_columns if col not in purchase_df.columns]
         
         if missing_columns:
             print(f"Warning: Missing columns in purchase_history_df: {missing_columns}")
             # 不足しているカラムを空の文字列で追加
             for col in missing_columns:
-                purchase_history_df[col] = ''
+                purchase_df[col] = ''
         
         # ＹＪコードと厚労省CDで紐付け
         try:
             merged_df = pd.merge(
                 inventory_df,
-                purchase_history_df[required_columns],
+                purchase_df[required_columns],
                 left_on='ＹＪコード',
                 right_on='厚労省CD',
                 how='left'
@@ -90,10 +90,9 @@ class FileProcessor:
             print("マージ後のデータ形状:", merged_df.shape)
         except Exception as e:
             print(f"マージ中にエラーが発生: {str(e)}")
-            return pd.DataFrame()  # エラーが発生した場合は空のデータフレームを返す
+            return pd.DataFrame()
         
         # 院所名別にデータを整理
-        # 必要なカラムのみを選択
         result_df = merged_df[[
             '品名・規格',
             '在庫量',
@@ -119,32 +118,20 @@ class FileProcessor:
     @staticmethod
     def generate_excel(df):
         excel_buffer = io.BytesIO()
-        
-        # シート名として無効な文字を置換する関数
-        def clean_sheet_name(name):
-            if not isinstance(name, str) or not name.strip():
-                return 'Unknown'
-            # 特殊文字を置換
-            invalid_chars = ['/', '\\', '?', '*', ':', '[', ']']
-            cleaned_name = ''.join('_' if c in invalid_chars else c for c in name)
-            # 最大31文字に制限（Excelの制限）
-            return cleaned_name[:31].strip()
 
         try:
-            # ExcelWriterを使用して、院所名ごとにシートを作成
             with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                 # 院所名ごとにシートを作成（空の値を除外）
                 for name in df['院所名'].unique():
-                    if pd.notna(name) and str(name).strip():  # 空の値をスキップ
-                        sheet_name = clean_sheet_name(str(name))
-                        # 該当する院所のデータを抽出
+                    if not pd.isna(name) and str(name).strip():
+                        sheet_name = str(name)[:31].strip()  # シート名を31文字以内に制限
                         sheet_df = df[df['院所名'] == name].copy()
                         
                         if not sheet_df.empty:
                             try:
-                                # 法人名と院所名を取得（ヘッダー用）
-                                houjin_name = str(sheet_df['法人名'].iloc[0] or '').strip()
-                                insho_name = str(sheet_df['院所名'].iloc[0] or '').strip()
+                                # 法人名と院所名を取得
+                                houjin_name = str(sheet_df['法人名'].iloc[0] or '')
+                                insho_name = str(sheet_df['院所名'].iloc[0] or '')
                                 
                                 # 表示用のカラムから法人名と院所名を除外
                                 display_df = sheet_df.drop(['法人名', '院所名'], axis=1)
@@ -156,7 +143,7 @@ class FileProcessor:
                                 header_data = pd.DataFrame([
                                     ['不良在庫引き取り依頼'],
                                     [''],
-                                    [houjin_name + ' ' + insho_name if houjin_name and insho_name else '', '', '御中'],
+                                    [f"{houjin_name.strip()} {insho_name.strip()}", '', '御中'],
                                     [''],
                                     ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
                                     ['']
@@ -194,19 +181,17 @@ class FileProcessor:
                                 cell_a1 = worksheet['A1']
                                 cell_a1.font = cell_a1.font.copy(size=16)
                                 
-                                # 法人名、院所名、御中のフォント設定（サイズ14、太字）
-                                cell_a3 = worksheet['A3']  # 法人名
-                                cell_b3 = worksheet['B3']  # 院所名
+                                # 法人名・院所名と御中のフォント設定（サイズ14、太字）
+                                cell_a3 = worksheet['A3']  # 法人名・院所名
                                 cell_c3 = worksheet['C3']  # 御中
                                 font_style = cell_a3.font.copy(size=14, bold=True)
                                 cell_a3.font = font_style
-                                cell_b3.font = font_style
                                 cell_c3.font = font_style
                                 
                             except Exception as e:
                                 print(f"シート '{sheet_name}' の処理中にエラーが発生: {str(e)}")
                                 continue
-                            
+        
         except Exception as e:
             print(f"Excel生成中にエラーが発生: {str(e)}")
             return None
