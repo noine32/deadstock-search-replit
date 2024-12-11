@@ -27,12 +27,23 @@ class FileProcessor:
                 # 不良在庫データの場合、最初の7行をスキップ
                 df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding, skiprows=7)
                 
-                # 薬品名が空白の行を削除
-                df = df[df['薬品名'].notna() & (df['薬品名'].str.strip() != '')]
+                # デバッグ用：元のデータ行数を記録
+                print(f"読み込み直後の行数: {len(df)}")
+                
+                # 薬品名が空白の行を削除（より厳密なチェック）
+                # NaN, None, 空文字、空白文字をすべて除外
+                df['薬品名'] = df['薬品名'].astype(str).apply(lambda x: x.strip())
+                df = df[df['薬品名'].apply(lambda x: x not in ['', 'nan', 'None'])]
+                
+                # デバッグ用：薬品名フィルタリング後の行数を記録
+                print(f"薬品名フィルタリング後の行数: {len(df)}")
                 
                 # 在庫量を数値に変換し、0以下の行を削除
                 df['在庫量'] = pd.to_numeric(df['在庫量'], errors='coerce')
                 df = df[df['在庫量'] > 0]
+                
+                # デバッグ用：在庫量フィルタリング後の行数を記録
+                print(f"在庫量フィルタリング後の行数: {len(df)}")
                 
                 # 在庫量を整数に変換
                 df['在庫量'] = df['在庫量'].astype(int)
