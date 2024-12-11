@@ -11,13 +11,25 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout)
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
     ]
 )
-logging.getLogger().setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# 起動時のデバッグ情報
+logger.info("アプリケーション起動")
+logger.debug(f"環境変数: PGHOST={os.environ.get('PGHOST', 'Not set')}")
+logger.debug(f"環境変数: PGPORT={os.environ.get('PGPORT', 'Not set')}")
+logger.debug(f"環境変数: PGDATABASE={os.environ.get('PGDATABASE', 'Not set')}")
+logger.debug(f"環境変数: PGUSER={os.environ.get('PGUSER', 'Not set')}")
+
+# Streamlit設定
+st.set_option('server.maxUploadSize', 200)
 st.set_option('server.enableCORS', False)
 st.set_option('server.enableXsrfProtection', False)
-logger = logging.getLogger(__name__)
+st.set_option('server.address', '0.0.0.0')
+st.set_option('server.port', 8501)
 
 # 起動時のデバッグ情報
 logger.info("アプリケーション起動")

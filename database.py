@@ -5,61 +5,95 @@ from psycopg2.extras import DictCursor
 class Database:
     def __init__(self):
         self.conn = None
-        self._connect()
-        self._create_tables()
+        try:
+            self._connect()
+            self._create_tables()
+        except Exception as e:
+            print(f"データベース初期化エラー: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def _connect(self):
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                if self.conn is None or (hasattr(self.conn, 'closed') and self.conn.closed):
+                    print("\n=== データベース接続情報 ===")
+                    print(f"接続試行: {retry_count + 1}/{max_retries}")
+                    print(f"Host: {os.environ.get('PGHOST', 'Not set')}")
+                    print(f"Port: {os.environ.get('PGPORT', 'Not set')}")
+                    print(f"Database: {os.environ.get('PGDATABASE', 'Not set')}")
+                    print(f"User: {os.environ.get('PGUSER', 'Not set')}")
+                    print("===========================\n")
+                    
+                    self.conn = psycopg2.connect(
+                        dbname=os.environ['PGDATABASE'],
+                        user=os.environ['PGUSER'],
+                        password=os.environ['PGPASSWORD'],
+                        host=os.environ['PGHOST'],
+                        port=os.environ['PGPORT'],
+                        connect_timeout=10
+                    )
+                    self.conn.autocommit = False
+                    print("データベース接続に成功しました")
+                    return
+                return
+            except Exception as e:
+                print(f"データベース接続エラー (試行 {retry_count + 1}/{max_retries}): {str(e)}")
+                print(f"エラーの種類: {type(e).__name__}")
+                import traceback
+                print("スタックトレース:")
+                traceback.print_exc()
+                self.conn = None
+                retry_count += 1
+                if retry_count < max_retries:
+                    import time
+                    time.sleep(2)  # 再試行前に2秒待機
+                else:
+                    raise
+
+    def _create_tables(self):
         try:
-            if self.conn is None or self.conn.closed:
-                print("データベース接続を試みます...")
-                print(f"Host: {os.environ.get('PGHOST')}")
-                print(f"Port: {os.environ.get('PGPORT')}")
-                print(f"Database: {os.environ.get('PGDATABASE')}")
-                print(f"User: {os.environ.get('PGUSER')}")
+            self._connect()
+            if self.conn is None:
+                raise Exception("データベース接続に失敗しました")
                 
-                self.conn = psycopg2.connect(
-                    dbname=os.environ['PGDATABASE'],
-                    user=os.environ['PGUSER'],
-                    password=os.environ['PGPASSWORD'],
-                    host=os.environ['PGHOST'],
-                    port=os.environ['PGPORT']
-                )
-                self.conn.autocommit = False
-                print("データベース接続に成功しました")
+            with self.conn.cursor() as cur:
+                # ユーザーテーブル
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        username VARCHAR(100) UNIQUE NOT NULL,
+                        password_hash VARCHAR(200) NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # 在庫データテーブル
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS inventory (
+                        id SERIAL PRIMARY KEY,
+                        yj_code VARCHAR(100),
+                        product_name VARCHAR(200),
+                        quantity INTEGER,
+                        expiry_date DATE,
+                        pharmacy_id VARCHAR(100),
+                        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                self.conn.commit()
+                print("データベーステーブルの作成が完了しました")
         except Exception as e:
-            print(f"データベース接続エラー: {str(e)}")
+            print(f"テーブル作成エラー: {str(e)}")
             print(f"エラーの種類: {type(e).__name__}")
             import traceback
             print("スタックトレース:")
             traceback.print_exc()
-            self.conn = None
+            if self.conn:
+                self.conn.rollback()
             raise
-
-    def _create_tables(self):
-        with self.conn.cursor() as cur:
-            # ユーザーテーブル
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    username VARCHAR(100) UNIQUE NOT NULL,
-                    password_hash VARCHAR(200) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            
-            # 在庫データテーブル
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS inventory (
-                    id SERIAL PRIMARY KEY,
-                    yj_code VARCHAR(100),
-                    product_name VARCHAR(200),
-                    quantity INTEGER,
-                    expiry_date DATE,
-                    pharmacy_id VARCHAR(100),
-                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            self.conn.commit()
 
     def verify_user(self, username, password_hash):
         max_retries = 3
