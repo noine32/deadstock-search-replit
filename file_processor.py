@@ -1,284 +1,215 @@
 import pandas as pd
-import io
-import traceback
-from datetime import datetime
-import openpyxl
-from openpyxl.styles import Font
 import chardet
-import logging
-import sys
-
-# ロギングの設定
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
-)
-logger = logging.getLogger(__name__)
+import io
+from datetime import datetime
 
 class FileProcessor:
     @staticmethod
     def detect_encoding(file_bytes):
-        try:
-            result = chardet.detect(file_bytes)
-            logger.debug(f"文字コード検出結果: {result}")
-            return result['encoding']
-        except Exception as e:
-            logger.error(f"文字コード検出エラー: {str(e)}")
-            return 'utf-8'
+        result = chardet.detect(file_bytes)
+        return result['encoding']
 
     @staticmethod
     def read_excel(file):
         try:
-            logger.debug("Excelファイル読み込み開始")
-            df = pd.read_excel(file)
-            logger.debug(f"読み込まれたデータ形状: {df.shape}")
-            logger.debug(f"カラム名: {df.columns.tolist()}")
-            logger.debug(f"データ型: {df.dtypes}")
+            df = pd.read_excel(file, engine='openpyxl')
             return df
         except Exception as e:
-            logger.error(f"Excelファイル読み込みエラー: {str(e)}")
-            logger.error(traceback.format_exc())
-            raise
+            raise Exception(f"Excelファイルの読み込みエラー: {str(e)}")
 
     @staticmethod
-    def read_csv(file, file_type=None):
+    def read_csv(file, file_type='default'):
         try:
-            logger.debug(f"CSVファイル読み込み開始 (file_type: {file_type})")
-            content = file.read()
-            encoding = FileProcessor.detect_encoding(content)
-            file.seek(0)
+            file_bytes = file.getvalue()
+            encoding = FileProcessor.detect_encoding(file_bytes)
             
-            logger.debug(f"検出された文字コード: {encoding}")
+            if file_type == 'inventory':
+                # 不良在庫データの場合、最初の7行をスキップ
+                df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding, skiprows=7)
+            else:
+                df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding)
             
-            df = pd.read_csv(io.StringIO(content.decode(encoding)))
-            logger.debug(f"読み込まれたデータ形状: {df.shape}")
-            logger.debug(f"カラム名: {df.columns.tolist()}")
-            logger.debug(f"データ型: {df.dtypes}")
             return df
-            
         except Exception as e:
-            logger.error(f"CSVファイル読み込みエラー: {str(e)}")
-            logger.error(traceback.format_exc())
-            raise
+            raise Exception(f"CSVファイルの読み込みエラー: {str(e)}")
 
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
+        print("処理開始: データフレームの初期状態")
+        print(f"Inventory shape: {inventory_df.shape}")
+        print(f"Purchase history shape: {purchase_history_df.shape}")
+        print(f"YJ code shape: {yj_code_df.shape}")
+        
+        # 空の薬品名を持つ行を削除
+        inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')].copy()
+        print("空の薬品名を削除後の inventory shape:", inventory_df.shape)
+        
+        # データフレームの型チェックとNaN値の処理
+        for df_name, df in {"inventory": inventory_df, "purchase_history": purchase_history_df, "yj_code": yj_code_df}.items():
+            if not isinstance(df, pd.DataFrame):
+                print(f"Warning: {df_name} is not a DataFrame")
+                continue
+            for col in df.columns:
+                df[col] = df[col].fillna('').astype(str)
+        
+        # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
+        if not yj_code_df.empty:
+            yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
+        else:
+            print("Warning: YJ code DataFrame is empty")
+            yj_mapping = {}
+        
+        # 不良在庫データに対してＹＪコードと単位を設定
+        inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[0])
+        inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
+        
+        # マージ前の状態を確認
+        print("\nマージ前のデータ確認:")
+        print("Inventory columns:", inventory_df.columns.tolist())
+        print("Purchase history columns:", purchase_history_df.columns.tolist())
+        
+        # 必要なカラムが存在することを確認
+        required_columns = ['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']
+        missing_columns = [col for col in required_columns if col not in purchase_history_df.columns]
+        
+        if missing_columns:
+            print(f"Warning: Missing columns in purchase_history_df: {missing_columns}")
+            # 不足しているカラムを空の文字列で追加
+            for col in missing_columns:
+                purchase_history_df[col] = ''
+        
+        # ＹＪコードと厚労省CDで紐付け
         try:
-            logger.debug("\n=== データ処理開始 ===")
-            logger.debug("入力データフレーム情報:")
-            
-            # 入力データフレームの検証
-            for name, df in {
-                "購入履歴": purchase_history_df,
-                "在庫データ": inventory_df,
-                "YJコード": yj_code_df
-            }.items():
-                logger.debug(f"\n{name}データフレーム:")
-                logger.debug(f"- 型: {type(df)}")
-                logger.debug(f"- 行数: {len(df)}")
-                logger.debug(f"- カラム: {df.columns.tolist()}")
-                logger.debug(f"- データ型: {df.dtypes}")
-
-            # カラムの存在確認
-            required_columns = {
-                '在庫データ': ['ＹＪコード', '院所名', '法人名'],
-                '購入履歴': ['厚労省CD']
-            }
-
-            for df_name, columns in required_columns.items():
-                df = locals()[f"{df_name}_df"]
-                missing_columns = [col for col in columns if col not in df.columns]
-                if missing_columns:
-                    raise ValueError(f"{df_name}に必要なカラムがありません: {missing_columns}")
-
-            # マージ処理
             merged_df = pd.merge(
                 inventory_df,
-                purchase_history_df,
+                purchase_history_df[required_columns],
                 left_on='ＹＪコード',
                 right_on='厚労省CD',
                 how='left'
             )
-
-            logger.debug("\nマージ後のデータ:")
-            logger.debug(f"- 行数: {len(merged_df)}")
-            logger.debug(f"- カラム: {merged_df.columns.tolist()}")
-            logger.debug(f"- データ型: {merged_df.dtypes}")
-
-            return merged_df
-
+            print("マージ後のデータ形状:", merged_df.shape)
         except Exception as e:
-            logger.error(f"データ処理エラー: {str(e)}")
-            logger.error(traceback.format_exc())
-            raise
-
-    @staticmethod
-    def clean_sheet_name(name):
-        """シート名をクリーニングし、Excelの制限に適合させる"""
-        try:
-            logger.debug(f"シート名クリーニング - 入力: '{name}'")
-            
-            if name is None:
-                logger.warning("シート名がNoneです")
-                return 'Unknown'
-            
-            if not isinstance(name, str):
-                logger.warning(f"シート名が文字列ではありません: {type(name)}")
-                return 'Unknown'
-            
-            if not name.strip():
-                logger.warning("シート名が空です")
-                return 'Unknown'
-            
-            # 無効な文字を置換
-            invalid_chars = ['/', '\\', '?', '*', ':', '[', ']']
-            cleaned_name = ''.join('_' if c in invalid_chars else c for c in name)
-            logger.debug(f"無効な文字を置換後のシート名: '{cleaned_name}'")
-            
-            # 英数字以外の文字をアンダースコアに置換
-            import re
-            cleaned_name = re.sub(r'[^\w\s-]', '_', cleaned_name)
-            logger.debug(f"英数字以外の文字を置換後のシート名: '{cleaned_name}'")
-            
-            # 長さを制限（Excel制限: 31文字）
-            final_name = cleaned_name[:31].strip()
-            logger.debug(f"長さ制限後のシート名: '{final_name}'")
-            
-            if not final_name:
-                logger.warning("クリーニング後のシート名が空になりました")
-                return 'Unknown'
-            
-            logger.debug(f"最終的なシート名: '{final_name}'")
-            return final_name
-            
-        except Exception as e:
-            logger.error(f"シート名クリーニングエラー: {str(e)}")
-            logger.error(f"エラーの種類: {type(e).__name__}")
-            logger.error(traceback.format_exc())
-            return 'Unknown'
+            print(f"マージ中にエラーが発生: {str(e)}")
+            return pd.DataFrame()  # エラーが発生した場合は空のデータフレームを返す
+        
+        # 院所名別にデータを整理
+        # 必要なカラムのみを選択
+        result_df = merged_df[[
+            '品名・規格',
+            '在庫量',
+            '単位',
+            '新薬品ｺｰﾄﾞ',
+            '使用期限',
+            'ロット番号',
+            '法人名',
+            '院所名'
+        ]].copy()
+        
+        # 空の値を空文字列に変換
+        result_df = result_df.fillna('')
+        
+        # 空の品名・規格を持つ行を削除
+        result_df = result_df[result_df['品名・規格'].notna() & (result_df['品名・規格'] != '')].copy()
+        
+        # 院所名でソート
+        result_df = result_df.sort_values(['法人名', '院所名'])
+        
+        return result_df
 
     @staticmethod
     def generate_excel(df):
-        """Excelファイルを生成し、バイトストリームとして返す"""
+        excel_buffer = io.BytesIO()
+        
+        # シート名として無効な文字を置換する関数
+        def clean_sheet_name(name):
+            if not isinstance(name, str) or not name.strip():
+                return 'Unknown'
+            # 特殊文字を置換
+            invalid_chars = ['/', '\\', '?', '*', ':', '[', ']']
+            cleaned_name = ''.join('_' if c in invalid_chars else c for c in name)
+            # 最大31文字に制限（Excelの制限）
+            return cleaned_name[:31].strip()
+
         try:
-            logger.debug("\n=== Excel生成開始 ===")
-            
-            if df is None or df.empty:
-                logger.error("空のデータフレームが渡されました")
-                return None
-
-            logger.debug("入力データフレーム情報:")
-            logger.debug(f"行数: {df.shape[0]}")
-            logger.debug(f"カラム: {df.columns.tolist()}")
-            logger.debug(f"データ型: {df.dtypes}")
-            logger.debug(f"データの最初の数行:\n{df.head()}")
-            logger.debug("メモリ使用量: {:.2f} MB".format(df.memory_usage(deep=True).sum() / 1024 / 1024))
-
-            excel_buffer = io.BytesIO()
-            required_columns = ['院所名', '法人名', '品名・規格', '在庫量', '単位', '新薬品コード', '使用期限', 'ロット番号', '引取り可能数']
-            logger.debug(f"必要なカラム: {required_columns}")
-            
-            # カラムの存在確認とデータ型の検証
-            logger.debug("必要なカラムの確認を開始")
-            
-            # カラムの存在確認と型チェック
-            missing_columns = [col for col in required_columns if col not in df.columns]
-            if missing_columns:
-                error_msg = f"必要なカラムがありません: {missing_columns}"
-                logger.error(error_msg)
-                raise ValueError(error_msg)
-
-            logger.debug("データ型の検証を開始")
-            for col in df.columns:
-                logger.debug(f"カラム '{col}' のデータ型: {df[col].dtype}")
-                # null値のチェック
-                null_count = df[col].isnull().sum()
-                if null_count > 0:
-                    logger.warning(f"カラム '{col}' に {null_count} 個のnull値が存在します")
-
+            # ExcelWriterを使用して、院所名ごとにシートを作成
             with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                logger.debug("ExcelWriterの初期化完了")
-                unique_names = df['院所名'].unique()
-                logger.debug(f"\n処理対象院所数: {len(unique_names)}")
-                
-                for name in unique_names:
-                    try:
-                        if pd.isna(name):
-                            logger.warning(f"院所名がNaNです: {name}")
-                            continue
-                            
-                        sheet_name = FileProcessor.clean_sheet_name(str(name))
-                        logger.debug(f"処理中の院所: {name}")
-                        logger.debug(f"クリーニング後のシート名: '{sheet_name}'")
-                        
-                        # シート名の検証
-                        if not sheet_name or len(sheet_name.strip()) == 0:
-                            logger.error(f"無効なシート名が生成されました: '{sheet_name}'")
-                            continue
-                        
+                # 院所名ごとにシートを作成（空の値を除外）
+                for name in df['院所名'].unique():
+                    if pd.notna(name) and str(name).strip():  # 空の値をスキップ
+                        sheet_name = clean_sheet_name(str(name))
+                        # 該当する院所のデータを抽出
                         sheet_df = df[df['院所名'] == name].copy()
-                        if sheet_df.empty:
-                            logger.warning(f"院所 {name} のデータが空です")
-                            continue
-
-                        # ヘッダー情報の準備
-                        houjin_name = str(sheet_df['法人名'].iloc[0]) if not pd.isna(sheet_df['法人名'].iloc[0]) else ''
-                        insho_name = str(sheet_df['院所名'].iloc[0]) if not pd.isna(sheet_df['院所名'].iloc[0]) else ''
                         
-                        header_data = pd.DataFrame([
-                            ['不良在庫引き取り依頼', None, None],
-                            [None, None, None],
-                            [f"{houjin_name} {insho_name}".strip(), None, '御中'],
-                            [None, None, None],
-                            ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。', None, None],
-                            [None, None, None]
-                        ])
-
-                        # 表示用データフレームの準備
-                        display_columns = ['品名・規格', '在庫量', '単位', '新薬品コード', '使用期限', 'ロット番号', '引取り可能数']
-                        display_df = sheet_df[display_columns].copy()
-
-                        # データの書き込み
-                        header_data.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
-                        display_df.to_excel(writer, sheet_name=sheet_name, startrow=len(header_data), index=False)
-
-                        # シートの書式設定
-                        worksheet = writer.sheets[sheet_name]
-                        
-                        # 列幅の設定
-                        column_widths = {
-                            'A': 35,  # 品名・規格
-                            'B': 15,  # 在庫量
-                            'C': 10,  # 単位
-                            'D': 15,  # 新薬品コード
-                            'E': 15,  # 使用期限
-                            'F': 15,  # ロット番号
-                            'G': 20   # 引取り可能数
-                        }
-                        
-                        for col, width in column_widths.items():
-                            worksheet.column_dimensions[col].width = width
-                        
-                        # 行の高さを設定
-                        for row in range(1, worksheet.max_row + 1):
-                            worksheet.row_dimensions[row].height = 30
-
-                        # フォントサイズを設定
-                        for row in worksheet.rows:
-                            for cell in row:
-                                if cell.value is not None:
-                                    cell.font = Font(size=14)
-
-                    except Exception as e:
-                        logger.error(f"シート '{sheet_name}' の処理でエラー: {str(e)}")
-                        logger.error(traceback.format_exc())
-                        continue
-
-            excel_buffer.seek(0)
-            return excel_buffer
-
+                        if not sheet_df.empty:
+                            try:
+                                # 法人名と院所名を取得（ヘッダー用）
+                                houjin_name = str(sheet_df['法人名'].iloc[0] or '').strip()
+                                insho_name = str(sheet_df['院所名'].iloc[0] or '').strip()
+                                
+                                # 表示用のカラムから法人名と院所名を除外
+                                display_df = sheet_df.drop(['法人名', '院所名'], axis=1)
+                                
+                                # 「引取り可能数」列を追加
+                                display_df.insert(display_df.columns.get_loc('ロット番号') + 1, '引取り可能数', '')
+                                
+                                # ヘッダーデータの作成
+                                header_data = pd.DataFrame([
+                                    ['不良在庫引き取り依頼'],
+                                    [''],
+                                    [houjin_name + ' ' + insho_name if houjin_name and insho_name else '', '', '御中'],
+                                    [''],
+                                    ['下記の不良在庫につきまして、引き取りのご検討を賜れますと幸いです。どうぞよろしくお願いいたします。'],
+                                    ['']
+                                ])
+                                
+                                # ヘッダーとデータを書き込み
+                                header_data.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+                                display_df.to_excel(writer, sheet_name=sheet_name, startrow=6, index=False)
+                                
+                                # シートを取得してフォーマットを設定
+                                worksheet = writer.sheets[sheet_name]
+                                
+                                # 列幅の設定
+                                worksheet.column_dimensions['A'].width = 35  # 品名・規格
+                                worksheet.column_dimensions['B'].width = 15  # 在庫量
+                                worksheet.column_dimensions['C'].width = 10  # 単位
+                                worksheet.column_dimensions['D'].width = 15  # 新薬品コード
+                                worksheet.column_dimensions['E'].width = 15  # 使用期限
+                                worksheet.column_dimensions['F'].width = 15  # ロット番号
+                                worksheet.column_dimensions['G'].width = 20  # 引取り可能数
+                                
+                                # 行の高さを設定（30ピクセル）
+                                for row in range(1, worksheet.max_row + 1):
+                                    worksheet.row_dimensions[row].height = 30
+                                
+                                # デフォルトのフォントサイズを14に設定
+                                for row in worksheet.rows:
+                                    for cell in row:
+                                        if cell.font is None:
+                                            cell.font = cell.font.copy(size=14)
+                                        else:
+                                            cell.font = cell.font.copy(size=14)
+                                
+                                # タイトルのフォント設定（サイズ16）
+                                cell_a1 = worksheet['A1']
+                                cell_a1.font = cell_a1.font.copy(size=16)
+                                
+                                # 法人名、院所名、御中のフォント設定（サイズ14、太字）
+                                cell_a3 = worksheet['A3']  # 法人名
+                                cell_b3 = worksheet['B3']  # 院所名
+                                cell_c3 = worksheet['C3']  # 御中
+                                font_style = cell_a3.font.copy(size=14, bold=True)
+                                cell_a3.font = font_style
+                                cell_b3.font = font_style
+                                cell_c3.font = font_style
+                                
+                            except Exception as e:
+                                print(f"シート '{sheet_name}' の処理中にエラーが発生: {str(e)}")
+                                continue
+                            
         except Exception as e:
-            logger.error(f"Excel生成エラー: {str(e)}")
-            logger.error(traceback.format_exc())
+            print(f"Excel生成中にエラーが発生: {str(e)}")
             return None
+
+        excel_buffer.seek(0)
+        return excel_buffer
