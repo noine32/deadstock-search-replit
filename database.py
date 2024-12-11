@@ -11,6 +11,12 @@ class Database:
     def _connect(self):
         try:
             if self.conn is None or self.conn.closed:
+                print("データベース接続を試みます...")
+                print(f"Host: {os.environ.get('PGHOST')}")
+                print(f"Port: {os.environ.get('PGPORT')}")
+                print(f"Database: {os.environ.get('PGDATABASE')}")
+                print(f"User: {os.environ.get('PGUSER')}")
+                
                 self.conn = psycopg2.connect(
                     dbname=os.environ['PGDATABASE'],
                     user=os.environ['PGUSER'],
@@ -18,8 +24,15 @@ class Database:
                     host=os.environ['PGHOST'],
                     port=os.environ['PGPORT']
                 )
+                self.conn.autocommit = False
+                print("データベース接続に成功しました")
         except Exception as e:
             print(f"データベース接続エラー: {str(e)}")
+            print(f"エラーの種類: {type(e).__name__}")
+            import traceback
+            print("スタックトレース:")
+            traceback.print_exc()
+            self.conn = None
             raise
 
     def _create_tables(self):

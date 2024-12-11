@@ -28,6 +28,7 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "PYTHONPATH=/home python -m streamlit run main.py --server.port 8501 --server.address 0.0.0.0 --logger.level=debug --server.enableCORS=false --server.enableXsrfProtection=false"
+waitForPort = 8501
 
 [deployment]
 run = ["sh", "-c", "PYTHONPATH=/home python -m streamlit run main.py --server.port 8501 --server.address 0.0.0.0 --logger.level=debug --server.enableCORS=false --server.enableXsrfProtection=false"]
