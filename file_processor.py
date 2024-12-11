@@ -57,50 +57,83 @@ class FileProcessor:
 
     @staticmethod
     def process_data(purchase_history_df, inventory_df, yj_code_df):
-        # 空の薬品名を持つ行を削除
-        inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'] != '')]
-        
-        # 数値データを文字列に変換し、NaN値を処理
-        for df in [inventory_df, purchase_history_df, yj_code_df]:
-            for col in df.columns:
-                df[col] = df[col].fillna('').astype(str)
-        
-        # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
-        yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
-        
-        # 不良在庫データに対してＹＪコードと単位を設定
-        inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[0])
-        inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x, (None, None))[1])
-        
-        # ＹＪコードと厚労省CDで紐付け
-        merged_df = pd.merge(
-            inventory_df,
-            purchase_history_df[['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']],
-            left_on='ＹＪコード',
-            right_on='厚労省CD',
-            how='left'
-        )
-        
-        # 院所名別にデータを整理
-        # 必要なカラムのみを選択
-        result_df = merged_df[[
-            '品名・規格',
-            '在庫量',
-            '単位',
-            '新薬品ｺｰﾄﾞ',
-            '使用期限',
-            'ロット番号',
-            '法人名',
-            '院所名'
-        ]].copy()
-        
-        # 空の値を空文字列に変換
-        result_df = result_df.fillna('')
-        
-        # 院所名でソート
-        result_df = result_df.sort_values(['法人名', '院所名'])
-        
-        return result_df
+        try:
+            print("データ処理開始")
+            print(f"入力データの行数: 購入履歴={len(purchase_history_df)}, 在庫={len(inventory_df)}, YJコード={len(yj_code_df)}")
+
+            # データの前処理と検証
+            # 空の薬品名を持つ行を削除
+            inventory_df = inventory_df[inventory_df['薬品名'].notna() & (inventory_df['薬品名'].str.strip() != '')]
+            print(f"薬品名フィルタリング後の在庫データ行数: {len(inventory_df)}")
+
+            # 在庫量のバリデーション
+            inventory_df['在庫量'] = pd.to_numeric(inventory_df['在庫量'], errors='coerce')
+            inventory_df = inventory_df[inventory_df['在庫量'] > 0]
+            print(f"在庫量バリデーション後の行数: {len(inventory_df)}")
+
+            # 使用期限のフォーマットチェックと変換
+            inventory_df['使用期限'] = pd.to_datetime(inventory_df['使用期限'], errors='coerce')
+            inventory_df = inventory_df[inventory_df['使用期限'].notna()]
+            print(f"使用期限バリデーション後の行数: {len(inventory_df)}")
+
+            # 数値データを文字列に変換し、NaN値を処理
+            for df in [inventory_df, purchase_history_df, yj_code_df]:
+                for col in df.columns:
+                    df[col] = df[col].fillna('').astype(str)
+
+            # 在庫金額CSVから薬品名とＹＪコードのマッピングを作成
+            yj_mapping = dict(zip(yj_code_df['薬品名'], zip(yj_code_df['ＹＪコード'], yj_code_df['単位'])))
+            print(f"YJコードマッピング数: {len(yj_mapping)}")
+
+            # 不良在庫データに対してＹＪコードと単位を設定
+            inventory_df['ＹＪコード'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x.strip(), (None, None))[0])
+            inventory_df['単位'] = inventory_df['薬品名'].map(lambda x: yj_mapping.get(x.strip(), (None, None))[1])
+
+            # マッピング結果の確認
+            mapped_count = inventory_df['ＹＪコード'].notna().sum()
+            print(f"YJコードマッピング成功数: {mapped_count}/{len(inventory_df)}")
+
+            # ＹＪコードと厚労省CDで紐付け
+            merged_df = pd.merge(
+                inventory_df,
+                purchase_history_df[['厚労省CD', '法人名', '院所名', '品名・規格', '新薬品ｺｰﾄﾞ']],
+                left_on='ＹＪコード',
+                right_on='厚労省CD',
+                how='left'
+            )
+            print(f"マージ後のデータ行数: {len(merged_df)}")
+
+            # 院所名別にデータを整理
+            result_df = merged_df[[
+                '品名・規格',
+                '在庫量',
+                '単位',
+                '新薬品ｺｰﾄﾞ',
+                '使用期限',
+                'ロット番号',
+                '法人名',
+                '院所名'
+            ]].copy()
+
+            # 空の値を空文字列に変換
+            result_df = result_df.fillna('')
+
+            # データの検証
+            # 必須項目のチェック
+            required_columns = ['品名・規格', '在庫量', '使用期限']
+            for col in required_columns:
+                missing = result_df[result_df[col] == ''].shape[0]
+                print(f"{col}の欠損数: {missing}")
+
+            # 院所名でソート
+            result_df = result_df.sort_values(['法人名', '院所名'])
+            print(f"最終データ行数: {len(result_df)}")
+
+            return result_df
+
+        except Exception as e:
+            print(f"データ処理中にエラーが発生: {str(e)}")
+            raise Exception(f"データ処理エラー: {str(e)}")
 
     @staticmethod
     def generate_excel(df):
