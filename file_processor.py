@@ -26,6 +26,16 @@ class FileProcessor:
             if file_type == 'inventory':
                 # 不良在庫データの場合、最初の7行をスキップ
                 df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding, skiprows=7)
+                
+                # 薬品名が空白の行を削除
+                df = df[df['薬品名'].notna() & (df['薬品名'].str.strip() != '')]
+                
+                # 在庫量を数値に変換し、0以下の行を削除
+                df['在庫量'] = pd.to_numeric(df['在庫量'], errors='coerce')
+                df = df[df['在庫量'] > 0]
+                
+                # 在庫量を整数に変換
+                df['在庫量'] = df['在庫量'].astype(int)
             else:
                 df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding)
             
