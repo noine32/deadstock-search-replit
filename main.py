@@ -97,7 +97,42 @@ def main():
 
                     # 結果の表示
                     st.subheader("処理結果")
-                    st.dataframe(result_df)
+                    
+                    # 統計情報の表示
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("総在庫アイテム数", len(result_df))
+                        st.metric("不良在庫アイテム数", len(result_df[result_df['不良在庫']]))
+                    
+                    with col2:
+                        avg_days = int(result_df['有効期限切れまでの日数'].mean())
+                        st.metric("平均有効期限残日数", f"{avg_days}日")
+                        urgent_items = len(result_df[result_df['有効期限切れまでの日数'] <= 90])
+                        st.metric("緊急対応必要(3ヶ月以内)", urgent_items)
+                    
+                    with col3:
+                        total_quantity = int(result_df['在庫量'].sum())
+                        st.metric("総在庫数", total_quantity)
+                        dead_stock_qty = int(result_df[result_df['不良在庫']]['在庫量'].sum())
+                        st.metric("不良在庫数", dead_stock_qty)
+                    
+                    # データテーブルの表示
+                    st.dataframe(
+                        result_df,
+                        column_config={
+                            "不良在庫": st.column_config.CheckboxColumn("不良在庫"),
+                            "有効期限切れまでの日数": st.column_config.NumberColumn(
+                                "有効期限切れまでの日数",
+                                help="マイナスの値は有効期限切れを示します",
+                                format="%d日"
+                            ),
+                            "在庫量": st.column_config.NumberColumn(
+                                "在庫量",
+                                format="%d"
+                            )
+                        },
+                        hide_index=True
+                    )
 
                     # Excelダウンロードボタン
                     excel = FileProcessor.generate_excel(result_df)
