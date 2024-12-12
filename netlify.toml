@@ -1,14 +1,12 @@
 [build]
 command = """
     pip install -r requirements.txt
-    mise install --all
-    npm install
-    npm run build
+    mise install python@3.11
     """
 publish = "."
 
 [build.environment]
-
+PYTHON_VERSION = "3.11.11"
 
 [[redirects]]
 from = "/*"
